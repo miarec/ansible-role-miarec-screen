@@ -1,0 +1,5 @@
+---
+- name: restart miarec_screen
+  service: 
+    name: miarec_screen
+    state: restarted

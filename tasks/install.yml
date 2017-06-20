@@ -1,0 +1,199 @@
+---
+- name: Create release directory
+  file:
+    path: '{{ deploy_helper.new_release_path }}'
+    state: directory
+
+# --------------------------------------------------
+# Download and extract miarec files into .../releases/{version} folder
+# --------------------------------------------------
+
+- name: Verify miarec screen binary presense
+  stat:
+    path: "{{ deploy_helper.new_release_path }}/miarec_screen"
+  register: miarec_screen_bin_exists
+
+
+- name: Add an unfinished file, to allow cleanup on successful finalize
+  file:
+    path: '{{ deploy_helper.new_release_path }}/{{ deploy_helper.unfinished_filename }}'
+    state: touch
+  when: miarec_screen_bin_exists.stat.exists == False
+
+
+- name: Download miarec tarbal
+  get_url:
+    url: "{{ miarec_screen_download_base_url }}/{{ miarec_screen_tarball_file }}"
+    dest: "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
+  when: miarec_screen_bin_exists.stat.exists == False
+
+
+- name: Untar the source package
+  unarchive:
+    src: "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
+    dest: "{{ miarec_screen_download_dir }}/"
+    creates: "{{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version }}/miarec_screen"
+    copy: no
+  when: miarec_screen_bin_exists.stat.exists == False
+
+
+- name: Move miarec files to releases folder
+  shell: "mv {{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version}}/* {{ deploy_helper.new_release_path }}/"
+  when: miarec_screen_bin_exists.stat.exists == False
+
+
+# --------------------------------------------------
+# Create user/group
+# --------------------------------------------------
+- name: "Add miarec group '{{ miarec_screen_bin_group }}'"
+  group:
+    name: "{{ miarec_screen_bin_group }}"
+    state: present
+  when: miarec_screen_bin_group != 'root'
+
+
+- name: "Add miarec user '{{ miarec_screen_bin_user }}'"
+  user:
+    name: "{{ miarec_screen_bin_user }}"
+    group: "{{ miarec_screen_bin_group }}"
+    comment: "MiaRec"
+    shell: /bin/false
+    system: yes
+  when: miarec_screen_bin_user != 'root'
+
+
+# --------------------------------------------------
+# Create required directory
+# --------------------------------------------------
+- name: Create working directory for miarec
+  file:
+    path: '{{ miarec_screen_work_dir }}'
+    owner: '{{ miarec_screen_bin_user }}'
+    group: '{{ miarec_screen_bin_group }}'
+    state: directory
+
+- name: Create log directories for miarec
+  file:
+    path: '{{ item }}'
+    owner: '{{ miarec_screen_bin_user }}'
+    group: '{{ miarec_screen_bin_group }}'
+    state: directory
+  with_items:
+    - '{{ miarec_screen_log_dir }}'
+    - '{{ miarec_screen_log_dir }}/error'
+    - '{{ miarec_screen_log_dir }}/trace'
+
+
+# --------------------------------------------------
+# Configuration file production.ini
+# --------------------------------------------------
+- name: Copy miarec_screen.ini file
+  copy:
+    src: "{{ deploy_helper.new_release_path }}/miarec_screen.ini.sample"
+    dest: "{{ deploy_helper.new_release_path }}/miarec_screen.ini"
+    force: False
+    remote_src: True
+
+# --------------------------------------------------
+# Configuration file
+# --------------------------------------------------
+- name: Configure miarec_screen.ini file
+  ini_file:
+    dest: "{{ deploy_helper.new_release_path }}/miarec_screen.ini"
+    section: "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+  with_items:
+    - section: 'Main'
+      option: 'Name'
+      value: '{{ miarec_screen_instance_name }}'
+    - section: 'SQLConfig'
+      option: 'Host'
+      value: '{{ miarec_db_host }}:{{ miarec_db_port }}'
+    - section: 'SQLConfig'
+      option: 'Database'
+      value: '{{ miarec_db_name }}'
+    - section: 'SQLConfig'
+      option: 'Username'
+      value: '{{ miarec_db_user }}'
+    - section: 'SQLConfig'
+      option: 'Password'
+      value: '{{ miarec_db_password }}'
+    - section: 'SQLCallsLog'
+      option: 'Host'
+      value: '{{ miarec_db_host }}:{{ miarec_db_port }}'
+    - section: 'SQLCallsLog'
+      option: 'Database'
+      value: '{{ miarec_db_name }}'
+    - section: 'SQLCallsLog'
+      option: 'Username'
+      value: '{{ miarec_db_user }}'
+    - section: 'SQLCallsLog'
+      option: 'Password'
+      value: '{{ miarec_db_password }}'
+    - section: 'RedisCallsLog'
+      option: 'Host'
+      value: '{{ miarec_redis_host }}:{{ miarec_redis_port }}'
+    - section: 'ErrorsLog::File'
+      option: 'File'
+      value: '{{ miarec_screen_log_dir }}/error/errors.log'
+
+
+# --------------------------------------------------
+# Install service
+# --------------------------------------------------
+- fail:
+    msg: "Only SystemD and Upstart systems are supported at the moment"
+  when: ansible_service_mgr != "upstart" and ansible_service_mgr != "systemd"
+
+
+- fail:
+    msg: "MiaRec upstart script doesn't support run as unprivileged user yet"
+  when: ansible_service_mgr == "upstart" and miarec_screen_bin_user != 'root'
+
+
+- name: Install miarec service | systemd
+  template:
+    src: "etc_systemd_system_miarec.service.j2"
+    dest: "/etc/systemd/system/miarec_screen.service"
+    owner: root
+    group: root
+    mode: 0755
+  when: ansible_service_mgr == "systemd"
+
+
+- name: Install miarec service | upstart
+  template:
+    src: "etc_init_miarec_screen.conf.j2"
+    dest: "/etc/init/miarec_screen.conf"
+    owner: root
+    group: root
+    mode: 0755
+  when: ansible_service_mgr == "upstart"
+
+
+- name: Enable miarec service | systemd or upstart
+  service: 
+    name: miarec_screen
+    enabled: yes
+  when: ansible_service_mgr == "systemd" or ansible_service_mgr == "upstart"
+
+
+- name: Start miarec service
+  service: 
+    name: miarec_screen
+    state: started
+
+
+# --------------------------------------------------
+# Cleanup
+# --------------------------------------------------
+- name: Clean up the downloaded files
+  file: 
+    path: '{{ item }}'
+    state: absent
+  with_items:
+    - "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
+    - "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}.asc"
+  when: miarec_screen_cleanup_downloads|bool
+
