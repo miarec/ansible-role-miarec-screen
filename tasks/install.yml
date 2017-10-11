@@ -152,27 +152,29 @@
   when: ansible_service_mgr == "upstart" and miarec_screen_bin_user != 'root'
 
 
-- name: Install miarec service | systemd
+- name: Install miarec_screen service | systemd
   template:
     src: "etc_systemd_system_miarec_screen.service.j2"
     dest: "/etc/systemd/system/miarec_screen.service"
     owner: root
     group: root
     mode: 0755
+  notify: start miarec_screen
   when: ansible_service_mgr == "systemd"
 
 
-- name: Install miarec service | upstart
+- name: Install miarec_screen service | upstart
   template:
     src: "etc_init_miarec_screen.conf.j2"
     dest: "/etc/init/miarec_screen.conf"
     owner: root
     group: root
     mode: 0755
+  notify: start miarec_screen
   when: ansible_service_mgr == "upstart"
 
 
-- name: Enable miarec service | systemd or upstart
+- name: Enable miarec_screen service | systemd or upstart
   service: 
     name: miarec_screen
     enabled: yes
