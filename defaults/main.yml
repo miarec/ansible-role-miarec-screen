@@ -24,7 +24,7 @@ miarec_screen_bin_group: root
 # Multiple instances could connect to the same database
 # Using unique name for each instance allows to load individual settings
 # for each instance (identified by name)
-miarec_screen_instance_name: recorder
+miarec_screen_instance_name: "{{ inventory_hostname }}"
 
 
 # ------------------------------------
