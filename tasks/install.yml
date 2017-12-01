@@ -146,7 +146,7 @@
     dest: "/etc/systemd/system/miarec_screen.service"
     owner: root
     group: root
-    mode: 0755
+    mode: 0644
   notify: start miarec_screen
   when: ansible_service_mgr == "systemd"
 
@@ -157,7 +157,7 @@
     dest: "/etc/init/miarec_screen.conf"
     owner: root
     group: root
-    mode: 0755
+    mode: 0644
   notify: start miarec_screen
   when: ansible_service_mgr == "upstart"
 
