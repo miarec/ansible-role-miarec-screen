@@ -27,6 +27,15 @@ miarec_screen_bin_group: root
 miarec_screen_instance_name: "{{ inventory_hostname }}"
 
 
+# -----------------------
+# A list of ip-addresses from which REST API requests
+# are accepted (see section [API::User::webui] in INI file)
+# This should list all web and celery host ip-addresses
+# Default is 127.0.0.1
+# Example: 192.168.1.5;192.168.1.6
+# -----------------------
+miarec_rest_api_permitted_hosts: '127.0.0.1'
+
 # ------------------------------------
 # Installation folder structure:
 # ------------------------------------
