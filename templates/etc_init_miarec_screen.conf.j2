@@ -1,3 +1,5 @@
+# {{ ansible_managed }}
+
 description "MiaRec Screen Recorder"
 author      "MiaRec, Inc. www.miarec.com"
 
@@ -5,7 +7,7 @@ env EXEC={{ miarec_screen_install_dir }}/current/miarec_screen
 env PIDFILE=/var/run/miarec_screen/miarec_screen.pid
 env CONFFILE={{ miarec_screen_install_dir }}/current/miarec_screen.ini
 
-start on (started networking)
+start on (started networking or started sshd)
 stop on runlevel [!2345]
 
 console output
