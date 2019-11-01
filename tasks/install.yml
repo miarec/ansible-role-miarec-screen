@@ -124,7 +124,7 @@
       value: '{{ miarec_redis_host }}:{{ miarec_redis_port }}'
     - section: 'API::User::webui'
       option: 'IpAddress'
-      value: '{{ miarec_rest_api_permitted_hosts }}'
+      value: '127.0.0.1;{{ miarec_rest_api_permitted_hosts }}'
     - section: 'ErrorsLog::File'
       option: 'File'
       value: '{{ miarec_screen_log_dir }}/error/errors.log'
