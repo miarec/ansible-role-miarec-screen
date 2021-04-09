@@ -69,7 +69,7 @@ miarec_screen_work_dir: /opt/miarec/shared
 miarec_screen_log_dir: /var/log/miarec_screen
 
 
-miarec_screen_download_base_url: "https://www.miarec.com/files/download"
+miarec_screen_download_base_url: "https://miarec-download.s3.amazonaws.com"
   
 # Directory where to download miarec files
 miarec_screen_download_dir: /tmp
