@@ -61,7 +61,7 @@ miarec_screen_install_dir: /opt/miarec_screen
 # MiaRec stores some temporary files here.
 # Also, in case of application crash, the core dump files are created here.
 # miarec_work_dir: /var/lib/miarec
-miarec_screen_work_dir: /opt/miarec/shared
+miarec_screen_work_dir: /opt/miarec_screen/shared
 
 # Location for log files
 # This could be the 'shared' folder, but recommended location is /var/log
