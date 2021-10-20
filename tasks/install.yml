@@ -3,6 +3,7 @@
   file:
     path: '{{ deploy_helper.new_release_path }}'
     state: directory
+    mode: u=rwX,g=rX,o=rX
 
 # --------------------------------------------------
 # Download and extract miarec files into .../releases/{version} folder
@@ -34,6 +35,7 @@
     dest: "{{ miarec_screen_download_dir }}/"
     creates: "{{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version }}/miarec_screen"
     copy: no
+    mode: u=rwX,g=rX,o=rX
   when: miarec_screen_bin_exists.stat.exists == False
 
 
@@ -41,25 +43,6 @@
   shell: "mv {{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version}}/* {{ deploy_helper.new_release_path }}/"
   when: miarec_screen_bin_exists.stat.exists == False
 
-
-# --------------------------------------------------
-# Create user/group
-# --------------------------------------------------
-- name: "Add miarec group '{{ miarec_screen_bin_group }}'"
-  group:
-    name: "{{ miarec_screen_bin_group }}"
-    state: present
-  when: miarec_screen_bin_group != 'root'
-
-
-- name: "Add miarec user '{{ miarec_screen_bin_user }}'"
-  user:
-    name: "{{ miarec_screen_bin_user }}"
-    group: "{{ miarec_screen_bin_group }}"
-    comment: "MiaRec"
-    shell: /bin/false
-    system: yes
-  when: miarec_screen_bin_user != 'root'
 
 
 # --------------------------------------------------
@@ -86,6 +69,9 @@
 
 # --------------------------------------------------
 # Configuration file production.ini
+# It must be owned by root user and "miarec" group.
+# It will be readable to group (but not writable).
+# It will not be readable to other users
 # --------------------------------------------------
 - name: Copy miarec_screen.ini file
   copy:
@@ -93,6 +79,10 @@
     dest: "{{ deploy_helper.new_release_path }}/miarec_screen.ini"
     force: False
     remote_src: True
+    owner: root
+    group: '{{ miarec_screen_bin_group }}'
+    mode: u=rwX,g=rX,o=
+
 
 # --------------------------------------------------
 # Configuration file
