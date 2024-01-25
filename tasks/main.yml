@@ -8,7 +8,7 @@
 # ---------------------------------------------
 # Install dependencies
 # ---------------------------------------------
-- include: dependencies.yml
+- import_tasks: dependencies.yml
   become: yes
 
 # --------------------------------------------------
@@ -42,7 +42,7 @@
 # --------------------------------------------------
 # Install/upgrade 'miarec' app files
 # --------------------------------------------------
-- include: install.yml
+- import_tasks: install.yml
   become: yes
 
 # --------------------------------------------------
