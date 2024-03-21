@@ -3,7 +3,7 @@
   include_vars: "{{ item }}"
   with_first_found:
     - "../vars/{{ ansible_distribution }}-{{ ansible_distribution_major_version}}.yml"
-    - "../vars/{{ ansible_distribution }}.yml"
+    - "../vars/{{ ansible_os_family }}.yml"
 
 # ---------------------------------------------
 # Install dependencies
@@ -54,7 +54,7 @@
     release: '{{ deploy_helper.new_release }}'
     state: finalize
     keep_releases: 10
-  notify: 
+  notify:
     - restart miarec_screen
   become: yes
 
