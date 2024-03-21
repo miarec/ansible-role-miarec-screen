@@ -21,8 +21,8 @@ provisioner:
     ANSIBLE_VERBOSITY: ${MOLECULE_ANSIBLE_VERBOSITY:-0}
     MIAREC_SCREEN_VERSION: ${MOLECULE_MIAREC_SCREEN_VERSION:-"1.1.0.46"}
 
-# verifier:
-#   name: testinfra
-#   options:
-#     s: true
-#     verbose: true
+verifier:
+  name: testinfra
+  options:
+    s: true
+    verbose: true

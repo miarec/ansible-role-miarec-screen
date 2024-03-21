@@ -22,7 +22,7 @@
   when: miarec_screen_bin_exists.stat.exists == False
 
 
-- name: Download miarec tarbal
+- name: Download miarec tarball
   get_url:
     url: "{{ miarec_screen_download_base_url }}/{{ miarec_screen_tarball_file }}"
     dest: "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
@@ -156,7 +156,7 @@
 
 
 - name: Enable miarec_screen service | systemd or upstart
-  service: 
+  service:
     name: miarec_screen
     enabled: yes
   when: ansible_service_mgr == "systemd" or ansible_service_mgr == "upstart"
@@ -167,7 +167,7 @@
 # Cleanup
 # --------------------------------------------------
 - name: Clean up the downloaded files
-  file: 
+  file:
     path: '{{ item }}'
     state: absent
   with_items:

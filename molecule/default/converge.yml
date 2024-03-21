@@ -8,12 +8,26 @@
     - set_fact:
         miarec_screen_version: "{{ lookup('env', 'MIAREC_SCREEN_VERSION') }}"
 
-    - name: Update apt cache | Debian
-      apt:
-        update_cache: true
-        cache_valid_time: 600
-      changed_when: false
+    # - name: Update apt cache | Debian
+    #   apt:
+    #     update_cache: true
+    #     cache_valid_time: 600
+    #   changed_when: false
+    #   when: ansible_os_family == "Debian"
+
+    - set_fact:
+        _libcap_package: libpcap0.8
       when: ansible_os_family == "Debian"
+
+    - set_fact:
+        _libcap_package: libpcap
+      when: ansible_os_family == "RedHat"
+
+    - name: Install libpcap library
+      package:
+        name: "{{ _libcap_package }}"
+        state: present
+        update_cache: true
 
 
   roles:
