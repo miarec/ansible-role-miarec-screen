@@ -2,7 +2,7 @@
 galaxy_info:
   author: miarec
   description: Deploy MiaRec Screen Recorder
-  role_name: miarec-screen
+  role_name: miarec_screen
   license: MIT
   company: MiaRec, Inc.
   min_ansible_version: 2.7
