@@ -3,61 +3,63 @@ name: Ansible role testing
 'on':
     pull_request:
     push:
-      branches:
-        - master
-        - 20240321-extend-os
-      paths-ignore:
-        - '**.md'
+        branches:
+            - master
+        paths-ignore:
+            - '**.md'
 
 jobs:
-  lint:
-    name: lint
-    runs-on: ubuntu-latest
+    lint:
+        name: lint
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v4
+        steps:
+            - name: Check out the repository
+              uses: actions/checkout@v4
 
-      - name: Run ansible-lint
-        uses: ansible/ansible-lint-action@v6
+            - name: Run ansible-lint
+              uses: ansible/ansible-lint-action@v6
 
-  test:
-    name: molecule
-    runs-on: ubuntu-20.04
-    strategy:
-      fail-fast: false
-      matrix:
-        distro:
-          - ubuntu2004
-          - ubuntu2204
-          - centos7
-      #   - rockylinux9
-      #   - rockylinux8
-      #   - rhel9
-      #   - rhel8
-          - rhel7
-        version:
-          - ${{ vars.MIAREC_SCREEN_VERSION }}
+    test:
+        name: molecule
+        runs-on: ubuntu-20.04
+        strategy:
+            fail-fast: false
+            matrix:
+                distro:
+                    - ubuntu2004
+                    - ubuntu2204
+                    - centos7
+                    - rockylinux9
+                    - rockylinux8
+                    - rhel9
+                    - rhel8
+                    - rhel7
+                version:
+                    - ${{ vars.MIARECWEB_VERSION }}
+                python_version:
+                    - ${{ vars.MIARECWEB_PYTHON_VERSION }}
 
-    steps:
-      - name: Check out the Repository
-        uses: actions/checkout@v4
+        steps:
+            - name: Check out the Repository
+              uses: actions/checkout@v4
 
-      - name: Set up Python3
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
+            - name: Set up Python3
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.x'
 
-      - name: Install test dependencies
-        run: pip3 install -r molecule/default/test-requirements.txt
+            - name: Install test dependencies
+              run: pip3 install -r molecule/default/test-requirements.txt
 
-      - name: Install Ansible dependencies.
-        run: ansible-galaxy collection install community.docker ansible.posix --force
+            - name: Install Ansible dependencies.
+              run: ansible-galaxy collection install community.docker ansible.posix --force
 
-      - name: Run molecule tests
-        run: molecule test
-        env:
-          PY_COLORS: '1'
-          ANSIBLE_FORCE_COLOR: '1'
-          MOLECULE_DISTRO: ${{ matrix.distro }}
-          MOLECULE_MIAREC_SCREEN_VERSION: ${{ matrix.version }}
+            - name: Run molecule tests
+              run: molecule test
+              env:
+                  PY_COLORS: '1'
+                  ANSIBLE_FORCE_COLOR: '1'
+                  MOLECULE_DISTRO: ${{ matrix.distro }}
+                  MOLECULE_MIARECWEB_VERSION: ${{ matrix.version }}
+                  MOLECULE_MIARECWEB_PYTHON_VERSION: ${{ matrix.python_version }}
