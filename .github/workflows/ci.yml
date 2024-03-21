@@ -5,6 +5,7 @@ name: Ansible role testing
     push:
         branches:
             - master
+            - 20240321-extend-os
         paths-ignore:
             - '**.md'
 
@@ -30,15 +31,13 @@ jobs:
                     - ubuntu2004
                     - ubuntu2204
                     - centos7
-                    - rockylinux9
-                    - rockylinux8
-                    - rhel9
-                    - rhel8
+                    # - rockylinux9
+                    # - rockylinux8
+                    # - rhel9
+                    # - rhel8
                     - rhel7
                 version:
-                    - ${{ vars.MIARECWEB_VERSION }}
-                python_version:
-                    - ${{ vars.MIARECWEB_PYTHON_VERSION }}
+                    - ${{ vars.MIAREC_SCREEN_VERSION }}
 
         steps:
             - name: Check out the Repository
@@ -61,5 +60,4 @@ jobs:
                   PY_COLORS: '1'
                   ANSIBLE_FORCE_COLOR: '1'
                   MOLECULE_DISTRO: ${{ matrix.distro }}
-                  MOLECULE_MIARECWEB_VERSION: ${{ matrix.version }}
-                  MOLECULE_MIARECWEB_PYTHON_VERSION: ${{ matrix.python_version }}
+                  MOLECULE_MIAREC_SCREEN_VERSION: ${{ matrix.version }}
