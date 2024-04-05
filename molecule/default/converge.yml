@@ -5,7 +5,8 @@
 
   pre_tasks:
 
-    - set_fact:
+    - name: Define miarec_screen version
+      set_fact:
         miarec_screen_version: "{{ lookup('env', 'MIAREC_SCREEN_VERSION') }}"
 
     - name: Update apt cache | Debian
