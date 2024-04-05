@@ -4,11 +4,11 @@ exclude_paths:
 
 skip_list:
   - fqcn
-  # - yaml[line-length]
-  # - yaml[empty-lines]
-  # - yaml[trailing-spaces]
-  # - yaml[truthy]
-  # - jinja[spacing]
+  - yaml[line-length]
+  - yaml[empty-lines]
+  - yaml[trailing-spaces]
+  - yaml[truthy]
+  - jinja[spacing]
   - name[template]
-  # - name[casing]
-  # - name[missing]
+  - name[casing]
+  - name[missing]

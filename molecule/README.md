@@ -21,5 +21,5 @@ MOLECULE_DISTRO=centos7 MOLECULE_MIAREC_SCREEN_VERSION=1.1.0.46 molecule test
     - `rhel9`
     - `rhel8`
     - `rhel7`
- - `MOLECULE_MIAREC_SCREEN_VERSION` defines variable `miarec_screen_version`, default `1.1.0.46`
+ - `MOLECULE_MIAREC_SCREEN_VERSION` defines variable `miarec_screen_version`, default `2024.4.5.0`
  - `MOLECULE_ANSIBLE_VERBOSITY` set verbosity for ansible run, like running "ansible -vvv", values 0-3, default 0
