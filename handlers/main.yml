@@ -1,12 +1,12 @@
 ---
-- name: restart miarec_screen
-  service: 
+- name: Restart miarec_screen
+  service:
     name: miarec_screen
     state: restarted
-  become: yes
+  become: true
 
-- name: start miarec_screen
-  service: 
+- name: Start miarec_screen
+  service:
     name: miarec_screen
     state: started
-  become: yes
+  become: true

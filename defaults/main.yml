@@ -1,6 +1,6 @@
 ---
 ## Version of MiaRec Screen Controller to install
-miarec_screen_version: 1.1.0.11
+miarec_screen_version: 2024.4.5.0
 
 # ----------------------------
 # Application settings:
@@ -71,15 +71,11 @@ miarec_screen_log_dir: /var/log/miarec_screen
 
 
 miarec_screen_download_base_url: "https://miarec-download.s3.amazonaws.com"
-  
+
 # Directory where to download miarec files
 miarec_screen_download_dir: /tmp
 
 # whether or not to delete the downloaded files. By setting it
 # to false and using a custom var for `miarec_screen_download_dir` a kind of
 # local caching can be achieved.
-miarec_screen_cleanup_downloads: yes
-
-
-
-
+miarec_screen_cleanup_downloads: true

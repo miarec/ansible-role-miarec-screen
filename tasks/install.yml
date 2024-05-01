@@ -19,14 +19,16 @@
   file:
     path: '{{ deploy_helper.new_release_path }}/{{ deploy_helper.unfinished_filename }}'
     state: touch
-  when: miarec_screen_bin_exists.stat.exists == False
+    mode: '0644'
+  when: not miarec_screen_bin_exists.stat.exists
 
 
-- name: Download miarec tarbal
+- name: Download miarec tarball
   get_url:
     url: "{{ miarec_screen_download_base_url }}/{{ miarec_screen_tarball_file }}"
     dest: "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
-  when: miarec_screen_bin_exists.stat.exists == False
+    mode: '0644'
+  when: not miarec_screen_bin_exists.stat.exists
 
 
 - name: Untar the source package
@@ -34,16 +36,16 @@
     src: "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
     dest: "{{ miarec_screen_download_dir }}/"
     creates: "{{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version }}/miarec_screen"
-    copy: no
+    copy: false
     mode: u=rwX,g=rX,o=rX
-  when: miarec_screen_bin_exists.stat.exists == False
+  when: not miarec_screen_bin_exists.stat.exists
 
 
 - name: Move miarec files to releases folder
-  shell: "mv {{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version}}/* {{ deploy_helper.new_release_path }}/"
-  when: miarec_screen_bin_exists.stat.exists == False
-
-
+  shell: "mv {{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version }}/* {{ deploy_helper.new_release_path }}/"
+  args:
+    creates: "{{ deploy_helper.new_release_path }}/miarec_screen"
+  when: not miarec_screen_bin_exists.stat.exists
 
 # --------------------------------------------------
 # Create required directory
@@ -54,6 +56,7 @@
     owner: '{{ miarec_screen_bin_user }}'
     group: '{{ miarec_screen_bin_group }}'
     state: directory
+    mode: '0755'
 
 - name: Create log directories for miarec
   file:
@@ -61,6 +64,7 @@
     owner: '{{ miarec_screen_bin_user }}'
     group: '{{ miarec_screen_bin_group }}'
     state: directory
+    mode: '0755'
   with_items:
     - '{{ miarec_screen_log_dir }}'
     - '{{ miarec_screen_log_dir }}/error'
@@ -77,8 +81,8 @@
   copy:
     src: "{{ deploy_helper.new_release_path }}/miarec_screen.ini.sample"
     dest: "{{ deploy_helper.new_release_path }}/miarec_screen.ini"
-    force: False
-    remote_src: True
+    force: false
+    remote_src: true
     owner: root
     group: '{{ miarec_screen_bin_group }}'
     mode: u=rwX,g=rX,o=
@@ -93,6 +97,7 @@
     section: "{{ item.section }}"
     option: "{{ item.option }}"
     value: "{{ item.value }}"
+    mode: '0640'
   with_items:
     - section: 'Main'
       option: 'Name'
@@ -118,17 +123,19 @@
     - section: 'ErrorsLog::File'
       option: 'File'
       value: '{{ miarec_screen_log_dir }}/error/errors.log'
-  notify: restart miarec_screen
+  notify: Restart miarec_screen
 
 # --------------------------------------------------
 # Install service
 # --------------------------------------------------
-- fail:
+- name: Check for SystemD
+  fail:
     msg: "Only SystemD and Upstart systems are supported at the moment"
   when: ansible_service_mgr != "upstart" and ansible_service_mgr != "systemd"
 
 
-- fail:
+- name: Check for Upstart
+  fail:
     msg: "MiaRec upstart script doesn't support run as unprivileged user yet"
   when: ansible_service_mgr == "upstart" and miarec_screen_bin_user != 'root'
 
@@ -139,8 +146,8 @@
     dest: "/etc/systemd/system/miarec_screen.service"
     owner: root
     group: root
-    mode: 0644
-  notify: start miarec_screen
+    mode: '0644'
+  notify: Start miarec_screen
   when: ansible_service_mgr == "systemd"
 
 
@@ -150,15 +157,15 @@
     dest: "/etc/init/miarec_screen.conf"
     owner: root
     group: root
-    mode: 0644
-  notify: start miarec_screen
+    mode: '0644'
+  notify: Start miarec_screen
   when: ansible_service_mgr == "upstart"
 
 
 - name: Enable miarec_screen service | systemd or upstart
-  service: 
+  service:
     name: miarec_screen
-    enabled: yes
+    enabled: true
   when: ansible_service_mgr == "systemd" or ansible_service_mgr == "upstart"
 
 # Important! do not start the service right now. Postpone it until deploy_helper creates symbolic link to new release folder.
@@ -167,11 +174,10 @@
 # Cleanup
 # --------------------------------------------------
 - name: Clean up the downloaded files
-  file: 
+  file:
     path: '{{ item }}'
     state: absent
   with_items:
     - "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
     - "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}.asc"
   when: miarec_screen_cleanup_downloads|bool
-
