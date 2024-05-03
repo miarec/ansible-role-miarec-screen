@@ -14,38 +14,44 @@
     path: "{{ deploy_helper.new_release_path }}/miarec_screen"
   register: miarec_screen_bin_exists
 
-
-- name: Add an unfinished file, to allow cleanup on successful finalize
-  file:
-    path: '{{ deploy_helper.new_release_path }}/{{ deploy_helper.unfinished_filename }}'
-    state: touch
-    mode: '0644'
+- name: Download and extract source package.
   when: not miarec_screen_bin_exists.stat.exists
+  block:
 
+    - name: Add an unfinished file, to allow cleanup on successful finalize
+      file:
+        path: '{{ deploy_helper.new_release_path }}/{{ deploy_helper.unfinished_filename }}'
+        state: touch
+        mode: '0644'
 
-- name: Download miarec tarball
-  get_url:
-    url: "{{ miarec_screen_download_base_url }}/{{ miarec_screen_tarball_file }}"
-    dest: "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
-    mode: '0644'
-  when: not miarec_screen_bin_exists.stat.exists
+    - name: Download miarec tarball
+      get_url:
+        url: "{{ miarec_screen_download_base_url }}/{{ miarec_screen_tarball_file }}"
+        dest: "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
+        mode: '0644'
 
+    # In some cases, unarchive will change permissions of destination folder,
+    # to prevent permissions issues with directories that might be shared, like /tmp
+    # we will create a direcoty specific to this role to extract files to
+    - name: Create directory for extracted files
+      file:
+        path: "{{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version }}"
+        state: directory
+        mode: u=rwX,g=rX,o=rX
+      register: _extract_dir
 
-- name: Untar the source package
-  unarchive:
-    src: "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
-    dest: "{{ miarec_screen_download_dir }}/"
-    creates: "{{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version }}/miarec_screen"
-    copy: false
-    mode: u=rwX,g=rX,o=rX
-  when: not miarec_screen_bin_exists.stat.exists
+    - name: Untar the source package
+      unarchive:
+        src: "{{ miarec_screen_download_dir }}/{{ miarec_screen_tarball_file }}"
+        dest: "{{ _extract_dir.path }}/"
+        creates: "{{ _extract_dir.path }}/miarec_screen-{{ miarec_screen_version }}/miarec_screen"
+        copy: false
+        mode: u=rwX,g=rX,o=rX
 
-
-- name: Move miarec files to releases folder
-  shell: "mv {{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version }}/* {{ deploy_helper.new_release_path }}/"
-  args:
-    creates: "{{ deploy_helper.new_release_path }}/miarec_screen"
-  when: not miarec_screen_bin_exists.stat.exists
+    - name: Move miarec files to releases folder
+      shell: "mv {{ _extract_dir.path }}/miarec_screen-{{ miarec_screen_version }}/* {{ deploy_helper.new_release_path }}/"
+      args:
+        creates: "{{ deploy_helper.new_release_path }}/miarec_screen"
 
 # --------------------------------------------------
 # Create required directory
