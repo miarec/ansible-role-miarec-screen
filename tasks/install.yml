@@ -37,7 +37,7 @@
     # This step will create a direcoty specific to this role to extract files to
     - name: Create directory for extracted files
       file:
-        path: "{{ miarec_screen_download_dir }}/miarec_screen-{{ miarec_screen_version }}"
+        path: "{{ miarec_screen_download_dir }}/miarec_screen"
         state: directory
         mode: u=rwX,g=rX,o=rX
       register: _extract_dir
