@@ -7,6 +7,13 @@
     - "../vars/{{ ansible_os_family }}.yml"
 
 # ---------------------------------------------
+# Preflight checks
+# ---------------------------------------------
+- name: Run preflight checks
+  import_tasks: preflight.yml
+  become: true
+
+# ---------------------------------------------
 # Install dependencies
 # ---------------------------------------------
 - name: Install dependencies
@@ -30,6 +37,37 @@
     shell: /bin/false
     system: true
   when: miarec_screen_bin_user != 'root'
+
+# --------------------------------------------------
+# Configure TLS certificate permissions
+# When TLS is enabled with client certificates, ensure the
+# private key files are readable by the miarec_screen_bin_group
+# --------------------------------------------------
+- name: Set group ownership on TLS key files
+  file:
+    path: "{{ item }}"
+    group: "{{ miarec_screen_bin_group }}"
+    mode: "u=rw,g=r,o="
+  loop: "{{ _tls_key_files | select | unique | list }}"
+  vars:
+    _tls_key_files:
+      - "{{ miarec_db_tls_key_file if miarec_db_use_ssl | bool else '' }}"
+      - "{{ miarec_redis_tls_key_file if miarec_redis_use_ssl | bool else '' }}"
+  when: miarec_screen_bin_group != 'root'
+  become: true
+
+- name: Set group ownership on TLS key file directories
+  file:
+    path: "{{ item }}"
+    group: "{{ miarec_screen_bin_group }}"
+    mode: "u=rwx,g=rx,o="
+  loop: "{{ _tls_key_files | select | map('dirname') | unique | list }}"
+  vars:
+    _tls_key_files:
+      - "{{ miarec_db_tls_key_file if miarec_db_use_ssl | bool else '' }}"
+      - "{{ miarec_redis_tls_key_file if miarec_redis_use_ssl | bool else '' }}"
+  when: miarec_screen_bin_group != 'root'
+  become: true
 
 # --------------------------------------------------
 # Initialize the installation/upgrade process

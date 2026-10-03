@@ -1,0 +1,48 @@
+---
+# ---------------------------------------------
+# Validate TLS settings
+# ---------------------------------------------
+
+# MiaRec Screen Controller activates Redis TLS only with a client certificate
+# and key, and refuses to load [RedisSubscriber] with UseSSL=true without them.
+- name: Fail if Redis TLS is enabled without client certificate and key
+  fail:
+    msg: >-
+      miarec_redis_use_ssl is true, but miarec_redis_tls_cert_file or miarec_redis_tls_key_file is empty.
+      MiaRec Screen Controller requires a client certificate and key for Redis TLS.
+  when:
+    - miarec_redis_use_ssl | bool
+    - miarec_redis_tls_cert_file | length == 0 or miarec_redis_tls_key_file | length == 0
+
+- name: Validate TLS certificate files
+  vars:
+    _tls_files:
+      - label: PostgreSQL TLS CA file
+        path: "{{ miarec_db_tls_ca_file if miarec_db_use_ssl | bool else '' }}"
+      - label: PostgreSQL TLS client certificate file
+        path: "{{ miarec_db_tls_cert_file if miarec_db_use_ssl | bool else '' }}"
+      - label: PostgreSQL TLS client key file
+        path: "{{ miarec_db_tls_key_file if miarec_db_use_ssl | bool else '' }}"
+      - label: Redis TLS CA file
+        path: "{{ miarec_redis_tls_ca_file if miarec_redis_use_ssl | bool else '' }}"
+      - label: Redis TLS client certificate file
+        path: "{{ miarec_redis_tls_cert_file if miarec_redis_use_ssl | bool else '' }}"
+      - label: Redis TLS client key file
+        path: "{{ miarec_redis_tls_key_file if miarec_redis_use_ssl | bool else '' }}"
+  when: miarec_db_use_ssl | bool or miarec_redis_use_ssl | bool
+  block:
+    - name: Check TLS certificate files exist
+      stat:
+        path: "{{ item.path }}"
+      loop: "{{ _tls_files | selectattr('path') | list }}"
+      loop_control:
+        label: "{{ item.path }}"
+      register: _tls_file_stats
+
+    - name: Fail if TLS certificate file not found
+      fail:
+        msg: "{{ item.item.label }} not found: {{ item.item.path }}"
+      loop: "{{ _tls_file_stats.results }}"
+      loop_control:
+        label: "{{ item.item.path }}"
+      when: not item.stat.exists
