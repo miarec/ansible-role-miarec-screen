@@ -1,0 +1,38 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+
+  pre_tasks:
+    - name: Define miarec_screen version and service user
+      set_fact:
+        miarec_screen_version: "{{ lookup('env', 'MIAREC_SCREEN_VERSION') }}"
+
+        # MiaRec group configuration (required for TLS certificate access)
+        miarec_screen_bin_group: "{{ lookup('env', 'MIAREC_SCREEN_BIN_GROUP') }}"
+        miarec_screen_bin_user: "{{ lookup('env', 'MIAREC_SCREEN_BIN_USER') }}"
+
+    - name: Update apt cache | Debian
+      apt:
+        update_cache: true
+        cache_valid_time: 600
+      changed_when: false
+      when: ansible_os_family == "Debian"
+
+  roles:
+    - role: ansible-role-miarec-screen
+      vars:
+        # PostgreSQL TLS configuration
+        miarec_db_use_ssl: true
+        miarec_db_tls_ca_file: /etc/miarec/tls/ca.crt
+        miarec_db_tls_cert_file: /etc/miarec/tls/client.crt
+        miarec_db_tls_key_file: /etc/miarec/tls/client.key
+        miarec_db_tls_check_hostname: false
+        # Redis TLS configuration
+        miarec_redis_use_ssl: true
+        miarec_redis_tls_ca_file: /etc/miarec/tls/ca.crt
+        miarec_redis_tls_cert_file: /etc/miarec/tls/client.crt
+        miarec_redis_tls_key_file: /etc/miarec/tls/client.key
+        miarec_redis_tls_check_hostname: false
+      tags:
+        - miarec_screen
