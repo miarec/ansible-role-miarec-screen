@@ -19,7 +19,8 @@ miarec_redis_port: 6379
 # -----------------------------
 # PostgreSQL TLS settings ([Database] section)
 # Requires MiaRec Screen Controller 2026.8.3.0 or later.
-# The role does not upload the certificate files. They must exist on the host.
+# The role uploads a file when its *_src variable is set. Otherwise the file
+# must exist on the host.
 # The application derives libpq sslmode from these settings:
 #   - no CA file: sslmode=require
 #   - CA file: sslmode=verify-ca, or verify-full when check_hostname is true
@@ -29,6 +30,12 @@ miarec_db_tls_ca_file: ""           # CA certificate to validate server
 miarec_db_tls_cert_file: ""         # Client certificate for mTLS
 miarec_db_tls_key_file: ""          # Client private key for mTLS
 miarec_db_tls_check_hostname: false # Whether to verify server hostname
+# Local copies of the files above. When a *_src variable is set, the role uploads
+# the file to the matching miarec_db_tls_*_file path and restarts the controller
+# when the file changed. Leave it empty when the file is already on the host.
+miarec_db_tls_ca_file_src: ""
+miarec_db_tls_cert_file_src: ""
+miarec_db_tls_key_file_src: ""
 
 # -----------------------------
 # Redis TLS settings ([RedisSubscriber] section)
@@ -40,6 +47,10 @@ miarec_redis_tls_ca_file: ""           # CA certificate to validate server
 miarec_redis_tls_cert_file: ""         # Client certificate for mTLS (required)
 miarec_redis_tls_key_file: ""          # Client private key for mTLS (required)
 miarec_redis_tls_check_hostname: false # Whether to verify server hostname
+# Local copies of the files above, see miarec_db_tls_*_src.
+miarec_redis_tls_ca_file_src: ""
+miarec_redis_tls_cert_file_src: ""
+miarec_redis_tls_key_file_src: ""
 
 miarec_screen_bin_user: root
 miarec_screen_bin_group: root

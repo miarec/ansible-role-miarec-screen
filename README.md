@@ -23,7 +23,7 @@ Role Variables
 
 MiaRec Screen Controller 2026.8.3.0 and later can connect to PostgreSQL and Redis over TLS. TLS is off by default.
 
-The role writes the TLS settings to `miarec_screen.ini` only when the matching `*_use_ssl` variable is `true`. The role does not upload certificate files; they must exist on the host before the role runs. The role checks that the files exist. When `miarec_screen_bin_group` is not `root`, the role makes the private keys and their directories readable by that group.
+The role writes the TLS settings to `miarec_screen.ini` only when the matching `*_use_ssl` variable is `true`. The role uploads a certificate file from the Ansible control machine when its `*_src` variable is set. Otherwise the file must exist on the host before the role runs, and the role checks that it does. When `miarec_screen_bin_group` is not `root`, the role makes the private keys and their directories readable by that group.
 
 PostgreSQL variables, written to the `[Database]` section. This section covers the configuration loader, the SQL event log and the SQL errors log.
 
@@ -32,6 +32,7 @@ PostgreSQL variables, written to the `[Database]` section. This section covers t
 - `miarec_db_tls_cert_file`: The client certificate for mutual TLS (default: empty). Sets `SSLCertificate`.
 - `miarec_db_tls_key_file`: The client private key for mutual TLS (default: empty). Sets `SSLPrivateKey`.
 - `miarec_db_tls_check_hostname`: Verify the server host name against its certificate (default: false). Sets `CheckHostName`.
+- `miarec_db_tls_ca_file_src`, `miarec_db_tls_cert_file_src`, `miarec_db_tls_key_file_src`: Local copies of the files above (default: empty). When set, the role uploads the file to the matching path, owned by root with mode 0644 for certificates and 0640 for the key, and restarts the service when the file changed.
 
 The application derives the libpq `sslmode`: `require` without a CA file, `verify-ca` with a CA file, and `verify-full` with a CA file and `miarec_db_tls_check_hostname: true`.
 
@@ -42,6 +43,7 @@ Redis variables, written to the `[RedisSubscriber]` section:
 - `miarec_redis_tls_cert_file`: The client certificate (default: empty). Sets `SSLCertificate`. Required when `miarec_redis_use_ssl` is true.
 - `miarec_redis_tls_key_file`: The client private key (default: empty). Sets `SSLPrivateKey`. Required when `miarec_redis_use_ssl` is true.
 - `miarec_redis_tls_check_hostname`: Verify the server host name against its certificate (default: false). Sets `CheckHostName`.
+- `miarec_redis_tls_ca_file_src`, `miarec_redis_tls_cert_file_src`, `miarec_redis_tls_key_file_src`: Local copies of the files above (default: empty), see `miarec_db_tls_*_src`.
 
 The application refuses Redis TLS without a client certificate and key, so the role fails early when `miarec_redis_use_ssl` is true and either file is not set.
 
