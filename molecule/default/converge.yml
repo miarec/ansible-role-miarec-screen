@@ -17,6 +17,6 @@
       when: ansible_os_family == "Debian"
 
   roles:
-    - role: ansible-role-miarec-screen
+    - role: "{{ playbook_dir }}/../.." # noqa: role-name[path]
       tags:
         - miarec_screen
