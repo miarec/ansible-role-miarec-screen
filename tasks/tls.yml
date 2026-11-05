@@ -13,9 +13,6 @@
 # changed, because it may be shared with other services, such as
 # /etc/ssl/certs or /etc/ssl/private. tls_verify.yml checks later that the
 # service user can read every file, uploaded or not.
-#
-# The PostgreSQL and Redis clients often share one CA file. When both point at
-# the same source and destination, the file is uploaded once.
 
 - name: Upload TLS files
   vars:
@@ -32,7 +29,7 @@
         (
           (_miarec_screen_db_tls_files if miarec_db_use_ssl | bool else [])
           + (_miarec_screen_redis_tls_files if miarec_redis_use_ssl | bool else [])
-        ) | selectattr('src') | unique | list
+        ) | selectattr('src') | list
       }}
   block:
     - name: Check which TLS directories exist
