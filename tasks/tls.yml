@@ -4,9 +4,18 @@
 # the file is already on the host, for example when another tool manages it.
 #
 # All files are owned by root. Certificates are world readable (0644). Private
-# keys are readable by root and miarec_screen_bin_group only (0640). The
-# PostgreSQL and Redis client often share one CA file. The list is deduplicated
-# by destination, so the shared file is uploaded once.
+# keys are readable by root and miarec_screen_bin_group only (0640).
+#
+# The role sets permissions only on the files it uploads. A file that is
+# already on the host, because its *_src variable is empty, is left as is.
+# A missing parent directory is created as 0755 root:root, regardless of the
+# umask, so every service can traverse it. An existing directory is never
+# changed, because it may be shared with other services, such as
+# /etc/ssl/certs or /etc/ssl/private. tls_verify.yml checks later that the
+# service user can read every file, uploaded or not.
+#
+# The PostgreSQL and Redis clients often share one CA file. When both point at
+# the same source and destination, the file is uploaded once.
 
 - name: Upload TLS files
   vars:
@@ -26,14 +35,19 @@
         ) | selectattr('src') | unique | list
       }}
   block:
-    - name: Create TLS directories
+    - name: Check which TLS directories exist
+      stat:
+        path: "{{ item }}"
+      loop: "{{ _miarec_screen_tls_files | map(attribute='dest') | map('dirname') | unique | list }}"
+      register: _miarec_screen_tls_dirs
+
+    - name: Create missing TLS directories
       file:
         path: "{{ item }}"
         state: directory
         owner: root
-        group: "{{ miarec_screen_bin_group }}"
-        mode: "0750"
-      loop: "{{ _miarec_screen_tls_files | map(attribute='dest') | map('dirname') | unique | list }}"
+        mode: "0755"
+      loop: "{{ _miarec_screen_tls_dirs.results | rejectattr('stat.exists') | map(attribute='item') | list }}"
 
     - name: Upload TLS certificates and private keys
       copy:
