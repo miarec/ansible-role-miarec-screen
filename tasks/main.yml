@@ -46,7 +46,7 @@
 # tls_verify.yml below fails the play when the service user cannot read it.
 # --------------------------------------------------
 - name: Upload TLS files
-  import_tasks: tls.yml
+  import_tasks: tls_upload.yml
   when: miarec_db_use_ssl | bool or miarec_redis_use_ssl | bool
   become: true
 
