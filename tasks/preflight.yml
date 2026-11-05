@@ -1,0 +1,15 @@
+---
+# ---------------------------------------------
+# Validate TLS settings
+# ---------------------------------------------
+
+# MiaRec Screen Controller activates Redis TLS only with a client certificate
+# and key, and refuses to load [RedisSubscriber] with UseSSL=true without them.
+- name: Fail if Redis TLS is enabled without client certificate and key
+  fail:
+    msg: >-
+      miarec_redis_use_ssl is true, but miarec_redis_tls_cert_file or miarec_redis_tls_key_file is empty.
+      MiaRec Screen Controller requires a client certificate and key for Redis TLS.
+  when:
+    - miarec_redis_use_ssl | bool
+    - miarec_redis_tls_cert_file | length == 0 or miarec_redis_tls_key_file | length == 0

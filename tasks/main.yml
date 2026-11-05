@@ -7,6 +7,13 @@
     - "../vars/{{ ansible_os_family }}.yml"
 
 # ---------------------------------------------
+# Preflight checks
+# ---------------------------------------------
+- name: Run preflight checks
+  import_tasks: preflight.yml
+  become: true
+
+# ---------------------------------------------
 # Install dependencies
 # ---------------------------------------------
 - name: Install dependencies
@@ -21,6 +28,7 @@
     name: "{{ miarec_screen_bin_group }}"
     state: present
   when: miarec_screen_bin_group != 'root'
+  become: true
 
 - name: "Add miarec user '{{ miarec_screen_bin_user }}'"
   user:
@@ -30,6 +38,19 @@
     shell: /bin/false
     system: true
   when: miarec_screen_bin_user != 'root'
+  become: true
+
+# --------------------------------------------------
+# Upload TLS files (optional)
+# A file is uploaded when its *_src variable is set. The private keys get
+# the group created above. The role sets permissions only on the files it
+# uploads; a file that is already on the host is left as is, and
+# tls_verify.yml below fails the play when the service user cannot read it.
+# --------------------------------------------------
+- name: Upload TLS files
+  import_tasks: tls_upload.yml
+  when: miarec_db_use_ssl | bool or miarec_redis_use_ssl | bool
+  become: true
 
 # --------------------------------------------------
 # Initialize the installation/upgrade process
@@ -46,6 +67,17 @@
 # --------------------------------------------------
 - name: Install miarec_screen
   import_tasks: install.yml
+  become: true
+
+# --------------------------------------------------
+# Verify the service user can read the TLS files
+# Runs after the service user exists and the files are uploaded, and
+# before the release is finalized, so a failure leaves the previous
+# release active and the service untouched.
+# --------------------------------------------------
+- name: Verify the service user can read the TLS files
+  import_tasks: tls_verify.yml
+  when: miarec_db_use_ssl | bool or miarec_redis_use_ssl | bool
   become: true
 
 # --------------------------------------------------

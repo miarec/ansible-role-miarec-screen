@@ -1,0 +1,59 @@
+---
+# Upload the TLS files from the Ansible control machine. A file is uploaded
+# when its miarec_*_tls_*_src variable is set. Leave the variable empty when
+# the file is already on the host, for example when another tool manages it.
+#
+# All files are owned by root. Certificates are world readable (0644). Private
+# keys are readable by root and miarec_screen_bin_group only (0640).
+#
+# The role sets permissions only on the files it uploads. A file that is
+# already on the host, because its *_src variable is empty, is left as is.
+# A missing parent directory is created as 0755 root:root, regardless of the
+# umask, so every service can traverse it. An existing directory is never
+# changed, because it may be shared with other services, such as
+# /etc/ssl/certs or /etc/ssl/private. tls_verify.yml checks later that the
+# service user can read every file, uploaded or not.
+
+- name: Upload TLS files
+  vars:
+    _miarec_screen_db_tls_files:
+      - { src: "{{ miarec_db_tls_ca_file_src }}", dest: "{{ miarec_db_tls_ca_file }}" }
+      - { src: "{{ miarec_db_tls_cert_file_src }}", dest: "{{ miarec_db_tls_cert_file }}" }
+      - { src: "{{ miarec_db_tls_key_file_src }}", dest: "{{ miarec_db_tls_key_file }}", private: true }
+    _miarec_screen_redis_tls_files:
+      - { src: "{{ miarec_redis_tls_ca_file_src }}", dest: "{{ miarec_redis_tls_ca_file }}" }
+      - { src: "{{ miarec_redis_tls_cert_file_src }}", dest: "{{ miarec_redis_tls_cert_file }}" }
+      - { src: "{{ miarec_redis_tls_key_file_src }}", dest: "{{ miarec_redis_tls_key_file }}", private: true }
+    _miarec_screen_tls_files: >-
+      {{
+        (
+          (_miarec_screen_db_tls_files if miarec_db_use_ssl | bool else [])
+          + (_miarec_screen_redis_tls_files if miarec_redis_use_ssl | bool else [])
+        ) | selectattr('src') | list
+      }}
+  block:
+    - name: Check which TLS directories exist
+      stat:
+        path: "{{ item }}"
+      loop: "{{ _miarec_screen_tls_files | map(attribute='dest') | map('dirname') | unique | list }}"
+      register: _miarec_screen_tls_dirs
+
+    - name: Create missing TLS directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        mode: "0755"
+      loop: "{{ _miarec_screen_tls_dirs.results | rejectattr('stat.exists') | map(attribute='item') | list }}"
+
+    - name: Upload TLS certificates and private keys
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: "{{ miarec_screen_bin_group }}"
+        mode: "{{ '0640' if item.private | default(false) | bool else '0644' }}"
+      loop: "{{ _miarec_screen_tls_files }}"
+      loop_control:
+        label: "{{ item.src | basename }} -> {{ item.dest }}"
+      notify: Restart miarec_screen

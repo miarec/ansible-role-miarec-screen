@@ -1,0 +1,111 @@
+---
+# Install and Configure Redis with TLS
+# The server certificate is generated on the control machine and uploaded here
+
+- name: Redis | Install EPEL | CentOS
+  package:
+    name: epel-release
+    state: present
+  when: ansible_facts['distribution'] == "CentOS"
+
+- name: Redis | Install Redis package
+  package:
+    name: redis
+    state: present
+    update_cache: true
+
+- name: Redis | Define service name
+  set_fact:
+    redis_service_name: "{{ 'redis-server' if ansible_facts['os_family'] == 'Debian' else 'redis' }}"
+
+# Upload Server Certificates
+# The certificates are generated on the control machine (see prepare.yml).
+# The package install above creates the redis user, which owns the files.
+- name: Redis | Create TLS directory
+  file:
+    path: /etc/redis/tls
+    state: directory
+    owner: redis
+    group: redis
+    mode: "0750"
+
+- name: Redis | Upload server certificate and CA certificate
+  copy:
+    src: "{{ tls_src_dir }}/{{ item.src }}"
+    dest: "/etc/redis/tls/{{ item.src | basename }}"
+    owner: redis
+    group: redis
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: redis/server.key, mode: "0600" }
+    - { src: redis/server.crt, mode: "0644" }
+    - { src: redis/ca.crt, mode: "0644" }
+
+# Start Redis to detect config file location
+- name: Redis | Start Redis service temporarily
+  systemd:
+    name: "{{ redis_service_name }}"
+    state: started
+    enabled: true
+
+- name: Redis | Get config file location from redis-cli INFO
+  shell: "set -o pipefail && redis-cli INFO | grep config_file | cut -d: -f2 | tr -d '\\r'"
+  args:
+    executable: /bin/bash
+  register: _redis_info_config
+  changed_when: false
+
+- name: Redis | Set config path from redis-cli INFO
+  set_fact:
+    redis_conf_path: "{{ _redis_info_config.stdout | trim }}"
+
+- name: Redis | Fail if config file not detected
+  fail:
+    msg: "Could not detect Redis config file from redis-cli INFO"
+  when: redis_conf_path | length == 0
+
+# Configure Redis for TLS
+- name: Redis | Configure TLS port
+  lineinfile:
+    path: "{{ redis_conf_path }}"
+    regexp: "^#?\\s*tls-port\\s+"
+    line: "tls-port 6379"
+
+- name: Redis | Disable non-TLS port
+  lineinfile:
+    path: "{{ redis_conf_path }}"
+    regexp: "^port\\s+"
+    line: "port 0"
+
+- name: Redis | Configure TLS certificate file
+  lineinfile:
+    path: "{{ redis_conf_path }}"
+    regexp: "^#?\\s*tls-cert-file\\s+"
+    line: "tls-cert-file /etc/redis/tls/server.crt"
+
+- name: Redis | Configure TLS key file
+  lineinfile:
+    path: "{{ redis_conf_path }}"
+    regexp: "^#?\\s*tls-key-file\\s+"
+    line: "tls-key-file /etc/redis/tls/server.key"
+
+- name: Redis | Configure TLS CA certificate
+  lineinfile:
+    path: "{{ redis_conf_path }}"
+    regexp: "^#?\\s*tls-ca-cert-file\\s+"
+    line: "tls-ca-cert-file /etc/redis/tls/ca.crt"
+
+- name: Redis | Configure TLS auth clients (require client certificates)
+  lineinfile:
+    path: "{{ redis_conf_path }}"
+    regexp: "^#?\\s*tls-auth-clients\\s+"
+    line: "tls-auth-clients yes"
+
+- name: Redis | Restart Redis service with TLS
+  systemd:
+    name: "{{ redis_service_name }}"
+    state: restarted
+    enabled: true
+
+# The TLS connection itself is checked in verify, through the client files
+# that the role uploads during converge.

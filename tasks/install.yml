@@ -122,15 +122,65 @@
     - section: 'Database'
       option: 'Password'
       value: '{{ miarec_db_password }}'
+    # UseSSL is always written, so that disabling TLS takes effect on a
+    # redeploy of the same version, which keeps the existing ini file.
+    - section: 'Database'
+      option: 'UseSSL'
+      value: "{{ 'true' if miarec_db_use_ssl | bool else 'false' }}"
     - section: 'RedisSubscriber'
       option: 'Host'
       value: '{{ miarec_redis_host }}:{{ miarec_redis_port }}'
+    - section: 'RedisSubscriber'
+      option: 'UseSSL'
+      value: "{{ 'true' if miarec_redis_use_ssl | bool else 'false' }}"
     - section: 'API::User::webui'
       option: 'IpAddress'
       value: '127.0.0.1;{{ miarec_rest_api_permitted_hosts }}'
     - section: 'ErrorsLog::File'
       option: 'File'
       value: '{{ miarec_screen_log_dir }}/error/errors.log'
+  notify: Restart miarec_screen
+
+# --------------------------------------------------
+# TLS settings for PostgreSQL (Database)
+# The [Database] section covers the configuration loader,
+# the SQL event log and the SQL errors log.
+# --------------------------------------------------
+- name: Configure PostgreSQL TLS settings in miarec_screen.ini
+  ini_file:
+    dest: "{{ deploy_helper.new_release_path }}/miarec_screen.ini"
+    section: "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    owner: root
+    group: '{{ miarec_screen_bin_group }}'
+    mode: '0640'
+  loop:
+    - { section: 'Database', option: 'SSLCACertificates', value: '{{ miarec_db_tls_ca_file }}' }
+    - { section: 'Database', option: 'SSLCertificate', value: '{{ miarec_db_tls_cert_file }}' }
+    - { section: 'Database', option: 'SSLPrivateKey', value: '{{ miarec_db_tls_key_file }}' }
+    - { section: 'Database', option: 'CheckHostName', value: "{{ 'true' if miarec_db_tls_check_hostname | bool else 'false' }}" }
+  when: miarec_db_use_ssl | bool
+  notify: Restart miarec_screen
+
+# --------------------------------------------------
+# TLS settings for Redis (RedisSubscriber)
+# --------------------------------------------------
+- name: Configure Redis TLS settings in miarec_screen.ini
+  ini_file:
+    dest: "{{ deploy_helper.new_release_path }}/miarec_screen.ini"
+    section: "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    owner: root
+    group: '{{ miarec_screen_bin_group }}'
+    mode: '0640'
+  loop:
+    - { section: 'RedisSubscriber', option: 'SSLCACertificates', value: '{{ miarec_redis_tls_ca_file }}' }
+    - { section: 'RedisSubscriber', option: 'SSLCertificate', value: '{{ miarec_redis_tls_cert_file }}' }
+    - { section: 'RedisSubscriber', option: 'SSLPrivateKey', value: '{{ miarec_redis_tls_key_file }}' }
+    - { section: 'RedisSubscriber', option: 'CheckHostName', value: "{{ 'true' if miarec_redis_tls_check_hostname | bool else 'false' }}" }
+  when: miarec_redis_use_ssl | bool
   notify: Restart miarec_screen
 
 # --------------------------------------------------

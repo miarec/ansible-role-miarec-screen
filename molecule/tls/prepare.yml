@@ -1,0 +1,47 @@
+---
+# The TLS fixtures are split between the control machine and the target.
+#
+# Control machine (first play):
+#   Generates a test CA, a client certificate, and a server certificate for
+#   each of PostgreSQL and Redis in `tls_src_dir`, defined once in
+#   molecule.yml. The CA private keys stay here.
+#
+# Target (second play):
+#   Installs PostgreSQL and Redis. Each service's task file uploads its own
+#   server certificate and the CA certificate into the service's directory,
+#   /etc/postgresql/tls or /etc/redis/tls.
+#
+# Nothing in prepare writes to /etc/miarec/tls. The role creates a directory
+# per service there and uploads the client certificate, the client key, and
+# the CA certificate from `tls_src_dir` during converge, the same way the
+# production playbooks do.
+# A passing test therefore proves the role's upload, not the fixture's.
+
+- name: Generate TLS certificates on the control machine
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: Include TLS certificate generation tasks
+      include_tasks: tasks/certificates.yml
+
+- name: Prepare TLS Environment
+  hosts: all
+  become: true
+
+  tasks:
+    # RedHat 9 images have curl-minimal which conflicts with curl
+    # curl-minimal is sufficient for our health endpoint testing
+    - name: Install curl for health endpoint testing | Debian
+      package:
+        name: curl
+        state: present
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Include PostgreSQL TLS setup tasks
+      include_tasks: tasks/postgresql_tls.yml
+
+    - name: Include Redis TLS setup tasks
+      include_tasks: tasks/redis_tls.yml

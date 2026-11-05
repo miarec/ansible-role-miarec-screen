@@ -1,0 +1,26 @@
+---
+# ansible-lint reads this file too. The disabled rules mirror the yaml[...]
+# entries that .ansible-lint skips, and the comments, comments-indentation,
+# and octal-values settings are the ones ansible-lint requires.
+extends: default
+
+ignore:
+  - .venv/
+
+rules:
+  # Allow `{ key: value }` with spaces inside the braces.
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+  colons: disable
+  commas: disable
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  empty-lines: disable
+  line-length: disable
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+  trailing-spaces: disable
+  truthy: disable
