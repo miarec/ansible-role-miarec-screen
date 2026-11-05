@@ -28,6 +28,7 @@
     name: "{{ miarec_screen_bin_group }}"
     state: present
   when: miarec_screen_bin_group != 'root'
+  become: true
 
 - name: "Add miarec user '{{ miarec_screen_bin_user }}'"
   user:
@@ -37,6 +38,7 @@
     shell: /bin/false
     system: true
   when: miarec_screen_bin_user != 'root'
+  become: true
 
 # --------------------------------------------------
 # Upload TLS files (optional)
