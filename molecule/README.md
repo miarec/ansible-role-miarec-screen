@@ -28,14 +28,13 @@ MOLECULE_DISTRO=centos7 MOLECULE_MIAREC_SCREEN_VERSION=1.1.0.46 molecule test
 
 The `tls` scenario installs PostgreSQL and Redis with TLS in the same container, then installs MiaRec Screen Controller with TLS enabled for both connections. The service runs as the `miarec` user and group.
 
-The prepare step generates the test certificates on the control machine, in the `tls` directory of `MOLECULE_EPHEMERAL_DIRECTORY`. It needs the `openssl` command there. The CA private key never leaves the control machine.
+The prepare step generates a test PKI per service on the control machine, in the `tls` directory of `MOLECULE_EPHEMERAL_DIRECTORY`. It needs the `openssl` command there. The CA private keys never leave the control machine. Layout of `tls/<service>/` for `postgresql` and `redis`:
 
-- `ca.crt`: CA certificate that signs all other certificates
+- `ca.crt`: the service's CA certificate
 - `client.crt`, `client.key`: client certificate and key for MiaRec
-- `postgresql/server.crt`, `postgresql/server.key`: PostgreSQL server certificate and key
-- `redis/server.crt`, `redis/server.key`: Redis server certificate and key
+- `server.crt`, `server.key`: server certificate and key
 
-The prepare step uploads the server certificates and the CA certificate to `/etc/postgresql/tls` and `/etc/redis/tls` on the target. The role uploads the client certificate, the client key, and the CA certificate to `/etc/miarec/tls` during converge, the same way the production playbooks do. Nothing in prepare writes to `/etc/miarec/tls`, so the test proves the role's upload.
+The prepare step uploads the server certificate and the CA certificate to `/etc/postgresql/tls` and `/etc/redis/tls` on the target. The role uploads the client certificate, the client key, and the CA certificate to `/etc/miarec/tls/postgresql` and `/etc/miarec/tls/redis` during converge, the same way the production playbooks do. Nothing in prepare writes to `/etc/miarec/tls`, so the test proves that the role creates the directories and uploads six distinct files.
 
 PostgreSQL accepts only `hostssl` connections with a client certificate, and Redis listens only on the TLS port. The tests check that plaintext connections are rejected, so a healthy `/health` response proves that the application uses TLS.
 

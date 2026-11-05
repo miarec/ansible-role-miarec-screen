@@ -13,13 +13,21 @@ INI_FILE = '/opt/miarec_screen/current/miarec_screen.ini'
 BIN_USER = os.environ.get('MIAREC_SCREEN_BIN_USER', 'miarec')
 BIN_GROUP = os.environ.get('MIAREC_SCREEN_BIN_GROUP', 'miarec')
 
-TLS_OPTIONS = {
-    'UseSSL': 'true',
-    'SSLCACertificates': '/etc/miarec/tls/ca.crt',
-    'SSLCertificate': '/etc/miarec/tls/client.crt',
-    'SSLPrivateKey': '/etc/miarec/tls/client.key',
-    'CheckHostName': 'false',
-}
+# PostgreSQL and Redis each have their own PKI. The role uploads the client
+# files into a directory per service.
+SERVICES = ('postgresql', 'redis')
+TLS_DIR = '/etc/miarec/tls'
+
+
+def tls_options(service):
+    """Return the TLS settings the role writes for one service."""
+    return {
+        'UseSSL': 'true',
+        'SSLCACertificates': f'{TLS_DIR}/{service}/ca.crt',
+        'SSLCertificate': f'{TLS_DIR}/{service}/client.crt',
+        'SSLPrivateKey': f'{TLS_DIR}/{service}/client.key',
+        'CheckHostName': 'false',
+    }
 
 
 def read_ini_section(content, section):
@@ -63,7 +71,7 @@ def test_miarec_screen_ini_has_database_tls_settings(host):
     """Test that the [Database] section contains TLS settings."""
     content = host.file(INI_FILE).content_string
     values = read_ini_section(content, 'Database')
-    for option, expected in TLS_OPTIONS.items():
+    for option, expected in tls_options('postgresql').items():
         assert values.get(option) == expected, f"[Database] {option}: {values.get(option)!r}"
 
 
@@ -71,29 +79,40 @@ def test_miarec_screen_ini_has_redis_tls_settings(host):
     """Test that the [RedisSubscriber] section contains TLS settings."""
     content = host.file(INI_FILE).content_string
     values = read_ini_section(content, 'RedisSubscriber')
-    for option, expected in TLS_OPTIONS.items():
+    for option, expected in tls_options('redis').items():
         assert values.get(option) == expected, f"[RedisSubscriber] {option}: {values.get(option)!r}"
 
 
-def test_tls_certificate_files_exist(host):
-    """Test that the role uploaded the TLS files with correct permissions."""
-    ca_file = host.file('/etc/miarec/tls/ca.crt')
-    assert ca_file.exists
-    assert ca_file.mode == 0o644
-
-    client_cert = host.file('/etc/miarec/tls/client.crt')
-    assert client_cert.exists
-    assert client_cert.mode == 0o644
-
-    client_key = host.file('/etc/miarec/tls/client.key')
-    assert client_key.exists
-    assert client_key.mode == 0o640
-    assert client_key.group == BIN_GROUP
+def test_tls_file_permissions(host):
+    """The role uploads the private keys readable by the service group only."""
+    for svc in SERVICES:
+        key = host.file(f'{TLS_DIR}/{svc}/client.key')
+        assert key.is_file, f"{svc} key is missing"
+        assert key.user == 'root', f"{svc} key is not owned by root"
+        assert key.group == BIN_GROUP, f"{svc} key is not group {BIN_GROUP}"
+        assert key.mode == 0o640, f"{svc} key is not 0640"
+        for name in ('ca.crt', 'client.crt'):
+            cert = host.file(f'{TLS_DIR}/{svc}/{name}')
+            assert cert.is_file, f"{svc}/{name} is missing"
+            assert cert.user == 'root', f"{svc}/{name} is not owned by root"
+            assert cert.mode == 0o644, f"{svc}/{name} is not 0644"
+        # The role created the directory, so it has the fixed mode, not the umask.
+        tls_dir = host.file(f'{TLS_DIR}/{svc}')
+        assert tls_dir.user == 'root', f"{svc} directory is not owned by root"
+        assert tls_dir.mode == 0o755, f"{svc} directory is not 0755"
 
 
 def test_ca_key_not_on_host(host):
-    """The CA private key stays on the control machine."""
-    assert not host.file('/etc/miarec/tls/ca.key').exists
+    """The CA private keys stay on the control machine."""
+    for svc in SERVICES:
+        assert not host.file(f'{TLS_DIR}/{svc}/ca.key').exists
+
+
+def test_service_user_can_read_tls_keys(host):
+    """The service user reads the private keys through the service group."""
+    for svc in SERVICES:
+        result = host.run(f'runuser -u {BIN_USER} -- cat {TLS_DIR}/{svc}/client.key')
+        assert result.rc == 0, f"{BIN_USER} cannot read {svc} client.key: {result.stderr}"
 
 
 def test_postgresql_tls_connection(host):
@@ -101,9 +120,9 @@ def test_postgresql_tls_connection(host):
     cmd = host.run(
         'psql "host=127.0.0.1 port=5432 dbname=miarecdb user=miarec password=password '
         'sslmode=verify-ca '
-        'sslrootcert=/etc/miarec/tls/ca.crt '
-        'sslcert=/etc/miarec/tls/client.crt '
-        'sslkey=/etc/miarec/tls/client.key" '
+        f'sslrootcert={TLS_DIR}/postgresql/ca.crt '
+        f'sslcert={TLS_DIR}/postgresql/client.crt '
+        f'sslkey={TLS_DIR}/postgresql/client.key" '
         '-c "SELECT 1;"'
     )
     assert cmd.rc == 0, cmd.stderr
@@ -124,9 +143,9 @@ def test_redis_tls_connection(host):
     """Test that Redis TLS connection works."""
     cmd = host.run(
         'redis-cli --tls '
-        '--cacert /etc/miarec/tls/ca.crt '
-        '--cert /etc/miarec/tls/client.crt '
-        '--key /etc/miarec/tls/client.key '
+        f'--cacert {TLS_DIR}/redis/ca.crt '
+        f'--cert {TLS_DIR}/redis/client.crt '
+        f'--key {TLS_DIR}/redis/client.key '
         '-h 127.0.0.1 -p 6379 PING'
     )
     assert cmd.rc == 0
