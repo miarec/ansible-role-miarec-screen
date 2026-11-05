@@ -28,12 +28,14 @@ MOLECULE_DISTRO=centos7 MOLECULE_MIAREC_SCREEN_VERSION=1.1.0.46 molecule test
 
 The `tls` scenario installs PostgreSQL and Redis with TLS in the same container, then installs MiaRec Screen Controller with TLS enabled for both connections. The service runs as the `miarec` user and group.
 
-The prepare step creates the test certificates:
+The prepare step generates the test certificates on the control machine, in the `tls` directory of `MOLECULE_EPHEMERAL_DIRECTORY`. It needs the `openssl` command there. The CA private key never leaves the control machine.
 
-- `/etc/miarec/tls/ca.crt`: CA certificate that signs all other certificates
-- `/etc/miarec/tls/client.crt`, `/etc/miarec/tls/client.key`: client certificate and key for MiaRec
-- `/etc/postgresql/tls/server.crt`, `/etc/postgresql/tls/server.key`: PostgreSQL server certificate and key
-- `/etc/redis/tls/server.crt`, `/etc/redis/tls/server.key`: Redis server certificate and key
+- `ca.crt`: CA certificate that signs all other certificates
+- `client.crt`, `client.key`: client certificate and key for MiaRec
+- `postgresql/server.crt`, `postgresql/server.key`: PostgreSQL server certificate and key
+- `redis/server.crt`, `redis/server.key`: Redis server certificate and key
+
+The prepare step uploads the server certificates and the CA certificate to `/etc/postgresql/tls` and `/etc/redis/tls` on the target. The role uploads the client certificate, the client key, and the CA certificate to `/etc/miarec/tls` during converge, the same way the production playbooks do. Nothing in prepare writes to `/etc/miarec/tls`, so the test proves the role's upload.
 
 PostgreSQL accepts only `hostssl` connections with a client certificate, and Redis listens only on the TLS port. The tests check that plaintext connections are rejected, so a healthy `/health` response proves that the application uses TLS.
 

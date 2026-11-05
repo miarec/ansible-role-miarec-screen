@@ -76,7 +76,7 @@ def test_miarec_screen_ini_has_redis_tls_settings(host):
 
 
 def test_tls_certificate_files_exist(host):
-    """Test that TLS certificate files exist with correct permissions."""
+    """Test that the role uploaded the TLS files with correct permissions."""
     ca_file = host.file('/etc/miarec/tls/ca.crt')
     assert ca_file.exists
     assert ca_file.mode == 0o644
@@ -89,6 +89,11 @@ def test_tls_certificate_files_exist(host):
     assert client_key.exists
     assert client_key.mode == 0o640
     assert client_key.group == BIN_GROUP
+
+
+def test_ca_key_not_on_host(host):
+    """The CA private key stays on the control machine."""
+    assert not host.file('/etc/miarec/tls/ca.key').exists
 
 
 def test_postgresql_tls_connection(host):
