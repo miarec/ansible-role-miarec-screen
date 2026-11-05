@@ -3,9 +3,6 @@
   hosts: all
   become: true
 
-  vars:
-    tls_src_dir: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/tls"
-
   pre_tasks:
     - name: Define miarec_screen version and service user
       set_fact:

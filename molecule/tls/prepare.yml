@@ -3,7 +3,8 @@
 #
 # Control machine (first play):
 #   Generates the test CA, the client certificate, and the PostgreSQL and
-#   Redis server certificates in `tls_src_dir`. The CA private key stays here.
+#   Redis server certificates in `tls_src_dir`, defined once in molecule.yml.
+#   The CA private key stays here.
 #
 # Target (second play):
 #   Installs PostgreSQL and Redis. Each service's task file uploads its own
@@ -21,9 +22,6 @@
   gather_facts: false
   become: false
 
-  vars:
-    tls_src_dir: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/tls"
-
   tasks:
     - name: Include TLS certificate generation tasks
       include_tasks: tasks/certificates.yml
@@ -31,9 +29,6 @@
 - name: Prepare TLS Environment
   hosts: all
   become: true
-
-  vars:
-    tls_src_dir: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/tls"
 
   tasks:
     # RedHat 9 images have curl-minimal which conflicts with curl
