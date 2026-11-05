@@ -122,9 +122,17 @@
     - section: 'Database'
       option: 'Password'
       value: '{{ miarec_db_password }}'
+    # UseSSL is always written, so that disabling TLS takes effect on a
+    # redeploy of the same version, which keeps the existing ini file.
+    - section: 'Database'
+      option: 'UseSSL'
+      value: "{{ 'true' if miarec_db_use_ssl | bool else 'false' }}"
     - section: 'RedisSubscriber'
       option: 'Host'
       value: '{{ miarec_redis_host }}:{{ miarec_redis_port }}'
+    - section: 'RedisSubscriber'
+      option: 'UseSSL'
+      value: "{{ 'true' if miarec_redis_use_ssl | bool else 'false' }}"
     - section: 'API::User::webui'
       option: 'IpAddress'
       value: '127.0.0.1;{{ miarec_rest_api_permitted_hosts }}'
@@ -148,7 +156,6 @@
     group: '{{ miarec_screen_bin_group }}'
     mode: '0640'
   loop:
-    - { section: 'Database', option: 'UseSSL', value: 'true' }
     - { section: 'Database', option: 'SSLCACertificates', value: '{{ miarec_db_tls_ca_file }}' }
     - { section: 'Database', option: 'SSLCertificate', value: '{{ miarec_db_tls_cert_file }}' }
     - { section: 'Database', option: 'SSLPrivateKey', value: '{{ miarec_db_tls_key_file }}' }
@@ -169,7 +176,6 @@
     group: '{{ miarec_screen_bin_group }}'
     mode: '0640'
   loop:
-    - { section: 'RedisSubscriber', option: 'UseSSL', value: 'true' }
     - { section: 'RedisSubscriber', option: 'SSLCACertificates', value: '{{ miarec_redis_tls_ca_file }}' }
     - { section: 'RedisSubscriber', option: 'SSLCertificate', value: '{{ miarec_redis_tls_cert_file }}' }
     - { section: 'RedisSubscriber', option: 'SSLPrivateKey', value: '{{ miarec_redis_tls_key_file }}' }

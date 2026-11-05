@@ -23,7 +23,7 @@ Role Variables
 
 MiaRec Screen Controller 2026.8.3.0 and later can connect to PostgreSQL and Redis over TLS. TLS is off by default.
 
-The role writes the TLS settings to `miarec_screen.ini` only when the matching `*_use_ssl` variable is `true`. The role uploads a certificate file from the Ansible control machine when its `*_src` variable is set. Otherwise the file must exist on the host before the role runs, and the role checks that it does. When `miarec_screen_bin_group` is not `root`, the role makes the private keys and their directories readable by that group.
+The role always writes `UseSSL` from the matching `*_use_ssl` variable, so disabling TLS takes effect on the next run. The role writes the other TLS settings to `miarec_screen.ini` only when `*_use_ssl` is `true`. The role uploads a certificate file from the Ansible control machine when its `*_src` variable is set. Otherwise the file must exist on the host before the role runs, and the role checks that it does. When `miarec_screen_bin_group` is not `root`, the role makes the private keys and their directories readable by that group.
 
 PostgreSQL variables, written to the `[Database]` section. This section covers the configuration loader, the SQL event log and the SQL errors log.
 
