@@ -4,17 +4,22 @@
 # Control machine (first play):
 #   Generates a test CA, a client certificate, and a server certificate for
 #   each of PostgreSQL and Redis in `tls_src_dir`, defined once in
-#   molecule.yml. The CA private keys stay here.
+#   molecule.yml. The CA private keys stay here. For the control interface,
+#   it generates Screen-CA, the controller's certificate, and a client
+#   certificate (tasks/screen_certificates.yml).
 #
 # Target (second play):
 #   Installs PostgreSQL and Redis. Each service's task file uploads its own
 #   server certificate and the CA certificate into the service's directory,
-#   /etc/postgresql/tls or /etc/redis/tls.
+#   /etc/postgresql/tls or /etc/redis/tls. It also uploads the screen
+#   recording client certificate, with which the tests connect to the
+#   controller.
 #
 # Nothing in prepare writes to /etc/miarec/tls. The role creates a directory
 # per service there and uploads the client certificate, the client key, and
 # the CA certificate from `tls_src_dir` during converge, the same way the
-# production playbooks do.
+# production playbooks do. For the control interface, it uploads the
+# controller's certificate and key, and the CA certificate of the clients.
 # A passing test therefore proves the role's upload, not the fixture's.
 
 - name: Generate TLS certificates on the control machine
@@ -26,6 +31,9 @@
   tasks:
     - name: Include TLS certificate generation tasks
       include_tasks: tasks/certificates.yml
+
+    - name: Include control interface TLS certificate generation tasks
+      include_tasks: tasks/screen_certificates.yml
 
 - name: Prepare TLS Environment
   hosts: all
@@ -45,3 +53,23 @@
 
     - name: Include Redis TLS setup tasks
       include_tasks: tasks/redis_tls.yml
+
+    # The tests connect to the controller with `openssl s_client` from inside
+    # the container, with the client certificate of Screen-CA.
+    - name: Install OpenSSL for the control interface tests
+      package:
+        name: openssl
+        state: present
+
+    - name: Create the directory of the screen recording test client
+      file:
+        path: /root/screen-client
+        state: directory
+        mode: "0700"
+
+    - name: Upload the certificate and key of the screen recording test client
+      copy:
+        src: "{{ tls_src_dir }}/screen/{{ item }}"
+        dest: "/root/screen-client/{{ item }}"
+        mode: "0600"
+      loop: [client.crt, client.key]

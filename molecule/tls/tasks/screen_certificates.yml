@@ -1,0 +1,97 @@
+---
+# Generate the test PKI of the control interface on the control machine.
+# These tasks run in the `hosts: localhost` play of prepare.yml and write to
+# `tls_src_dir/screen/` only. Nothing here touches the target.
+#
+# Screen-CA stands for the CA of a deployment: it signs the controller's
+# certificate, which the screen recording clients verify, and the clients'
+# certificates, which the controller verifies. Layout of tls_src_dir/screen/:
+#   ca.key, ca.crt                 Screen-CA. The key never leaves the control
+#                                  machine. side_effect.yml signs the renewed
+#                                  certificate of the controller with it.
+#   controller.key, controller.crt The controller's certificate
+#                                  (tasks/screen_controller_certificate.yml).
+#                                  The role uploads them, with ca.crt, during
+#                                  converge.
+#   client.key, client.crt         A client certificate. prepare.yml uploads
+#                                  it for the tests.
+# The tests use the PostgreSQL client certificate, which Test-CA-postgresql
+# signs and the role uploads, as the certificate of a client that the
+# controller must refuse.
+#
+# Every command has `creates:`, so a second `molecule prepare` reuses the CA
+# and the certificates keep chaining to it.
+
+- name: Screen | Create the certificate directory
+  file:
+    path: "{{ tls_src_dir }}/screen"
+    state: directory
+    mode: "0700"
+
+# ============ CA ============
+- name: Screen | Generate the key of Screen-CA
+  command: openssl genrsa -out {{ tls_src_dir }}/screen/ca.key 4096
+  args:
+    creates: "{{ tls_src_dir }}/screen/ca.key"
+
+- name: Screen | Generate the certificate of Screen-CA
+  command: >
+    openssl req -x509 -new -nodes
+    -key {{ tls_src_dir }}/screen/ca.key
+    -sha256 -days 365
+    -out {{ tls_src_dir }}/screen/ca.crt
+    -subj "/CN=Screen-CA"
+  args:
+    creates: "{{ tls_src_dir }}/screen/ca.crt"
+
+# ============ The controller's certificate ============
+- name: Screen | Create the controller's certificate and key
+  include_tasks: screen_controller_certificate.yml
+  vars:
+    screen_controller_dir: "{{ tls_src_dir }}/screen"
+
+# ============ Client certificate ============
+- name: Screen | Generate the key of the screen recording client
+  command: openssl genrsa -out {{ tls_src_dir }}/screen/client.key 2048
+  args:
+    creates: "{{ tls_src_dir }}/screen/client.key"
+
+- name: Screen | Create the certificate config of the screen recording client
+  copy:
+    content: |
+      [req]
+      distinguished_name = req_distinguished_name
+      req_extensions = v3_req
+      prompt = no
+
+      [req_distinguished_name]
+      CN = screen-client
+
+      [v3_req]
+      keyUsage = digitalSignature
+      extendedKeyUsage = clientAuth
+    dest: "{{ tls_src_dir }}/screen/client.cnf"
+    mode: "0644"
+
+- name: Screen | Generate the CSR of the screen recording client
+  command: >
+    openssl req -new
+    -key {{ tls_src_dir }}/screen/client.key
+    -out {{ tls_src_dir }}/screen/client.csr
+    -config {{ tls_src_dir }}/screen/client.cnf
+  args:
+    creates: "{{ tls_src_dir }}/screen/client.csr"
+
+- name: Screen | Sign the certificate of the screen recording client with Screen-CA
+  command: >
+    openssl x509 -req
+    -in {{ tls_src_dir }}/screen/client.csr
+    -CA {{ tls_src_dir }}/screen/ca.crt
+    -CAkey {{ tls_src_dir }}/screen/ca.key
+    -CAcreateserial
+    -out {{ tls_src_dir }}/screen/client.crt
+    -days 365 -sha256
+    -extensions v3_req
+    -extfile {{ tls_src_dir }}/screen/client.cnf
+  args:
+    creates: "{{ tls_src_dir }}/screen/client.crt"
