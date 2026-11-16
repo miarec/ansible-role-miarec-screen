@@ -13,3 +13,15 @@
   when:
     - miarec_redis_use_ssl | bool
     - miarec_redis_tls_cert_file | length == 0 or miarec_redis_tls_key_file | length == 0
+
+# The controller's certificate and key go together. With only one of them,
+# the controller either refuses the pair or creates a self-signed certificate
+# of its own at startup, which a client that verifies the controller's
+# certificate can't know.
+- name: Fail if only one of the control interface TLS certificate and key files is set
+  fail:
+    msg: >-
+      Set both miarec_screen_tls_cert_file and miarec_screen_tls_key_file, or
+      neither. Otherwise, the controller creates a self-signed certificate of
+      its own at startup.
+  when: (miarec_screen_tls_cert_file | length > 0) != (miarec_screen_tls_key_file | length > 0)

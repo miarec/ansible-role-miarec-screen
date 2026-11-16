@@ -52,6 +52,27 @@ miarec_redis_tls_ca_file_src: ""
 miarec_redis_tls_cert_file_src: ""
 miarec_redis_tls_key_file_src: ""
 
+# -----------------------------
+# TLS on the control interface, where the screen recording clients connect
+# ([Network] section)
+# The TLS port (PortTLS) comes from miarec_screen.ini.sample, or from the
+# web portal. With no path set, the default, the role leaves the [Network]
+# section alone, and the controller creates a self-signed certificate of
+# its own in miarec_screen_work_dir at startup.
+# Set the certificate and the key together, or neither.
+# -----------------------------
+miarec_screen_tls_cert_file: ""  # SSLCertificate: the controller's certificate
+miarec_screen_tls_key_file: ""   # SSLPrivateKey: the controller's private key
+miarec_screen_tls_ca_file: ""    # SSLCACertificates: the CA certificates of the clients.
+                                 # Set it to require client certificates (mTLS).
+# Local copies of the files above. When a *_src variable is set, the role uploads
+# the file to the matching miarec_screen_tls_*_file path and restarts the
+# controller when the file changed. Leave it empty when the file is already on
+# the host.
+miarec_screen_tls_ca_file_src: ""
+miarec_screen_tls_cert_file_src: ""
+miarec_screen_tls_key_file_src: ""
+
 miarec_screen_bin_user: root
 miarec_screen_bin_group: root
 miarec_screen_bin_umask: "0002"
