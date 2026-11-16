@@ -46,10 +46,16 @@
 # the group created above. The role sets permissions only on the files it
 # uploads; a file that is already on the host is left as is, and
 # tls_verify.yml below fails the play when the service user cannot read it.
+# The control interface ([Network]) uses TLS files when any of its paths
+# is set.
 # --------------------------------------------------
+- name: Check whether the control interface uses TLS files
+  set_fact:
+    _miarec_screen_network_tls: "{{ [miarec_screen_tls_cert_file, miarec_screen_tls_key_file, miarec_screen_tls_ca_file] | select | length > 0 }}"
+
 - name: Upload TLS files
   import_tasks: tls_upload.yml
-  when: miarec_db_use_ssl | bool or miarec_redis_use_ssl | bool
+  when: miarec_db_use_ssl | bool or miarec_redis_use_ssl | bool or _miarec_screen_network_tls | bool
   become: true
 
 # --------------------------------------------------
@@ -77,7 +83,7 @@
 # --------------------------------------------------
 - name: Verify the service user can read the TLS files
   import_tasks: tls_verify.yml
-  when: miarec_db_use_ssl | bool or miarec_redis_use_ssl | bool
+  when: miarec_db_use_ssl | bool or miarec_redis_use_ssl | bool or _miarec_screen_network_tls | bool
   become: true
 
 # --------------------------------------------------

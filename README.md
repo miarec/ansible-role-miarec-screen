@@ -49,6 +49,25 @@ The application refuses Redis TLS without a client certificate and key, so the r
 
 The REST API reports the connection state at `http://<host>:6089/health`. The response is JSON with `status`, `database` and `redis` fields, each `ok`, `error` or `disabled`.
 
+### TLS on the control interface
+
+The screen recording clients connect to the controller on the TLS port of the `[Network]` section, `PortTLS`, which is 6092 in the sample configuration file. The role doesn't set the port. MiaRec Screen Controller 2026.8.3.0 and 2026.10.26.0 crash on every accepted client connection, over TCP or TLS ([ScreenRecController#15](https://github.com/miarecdev/ScreenRecController/issues/15)), so use 2026.11.15.0 or later. These variables set the TLS files of that section:
+
+- `miarec_screen_tls_cert_file`: The path of the controller's certificate on the host (default: empty). Sets `SSLCertificate`. Set it with the key.
+- `miarec_screen_tls_key_file`: The path of the controller's private key on the host (default: empty). Sets `SSLPrivateKey`. Set it with the certificate.
+- `miarec_screen_tls_ca_file`: The path of a PEM file on the host with the CA certificates of the clients (default: empty). Sets `SSLCACertificates`. Set it to require client certificates.
+- `miarec_screen_tls_cert_file_src`, `miarec_screen_tls_key_file_src`, `miarec_screen_tls_ca_file_src`: Local copies of the files above (default: empty), see `miarec_db_tls_*_src`.
+
+The role writes the three file settings when any of the paths is set, and restarts the controller when a setting or an uploaded file changed. With no path set, the default, the role leaves the `[Network]` section alone. The sample configuration file then names `screen_rec_cert.pem` and `screen_rec_pkey.pem`, relative to `miarec_screen_work_dir`, and the controller creates a self-signed certificate under these names at startup when they don't exist.
+
+The controller's certificate comes from the CA of your deployment, as the PostgreSQL and Redis client certificates do: the role doesn't create or sign certificates. Put the certificate and the key on the Ansible control machine and set `miarec_screen_tls_cert_file_src` and `miarec_screen_tls_key_file_src`, and the role uploads them as it uploads the PostgreSQL and Redis files: owner root, group `miarec_screen_bin_group`, mode 0644 for the certificate and 0640 for the key. When a file changed, the role restarts the controller, so a renewed certificate takes effect with the next run. When a `*_src` variable is empty, the file must already be on the host, and the role leaves its permissions as they are. Before the release is finalized, the role checks that `miarec_screen_bin_user` can read every file in use, uploaded or not.
+
+Set the certificate and the key together, or neither, or the role fails. A client that verifies or pins the controller's certificate can't know a self-signed certificate before the controller starts, and that certificate changes whenever its files are lost.
+
+When `miarec_screen_tls_ca_file` is set, the controller requires a client certificate signed by one of the CA certificates in that file, and refuses a client without one. When it's empty, the controller doesn't ask for a client certificate. If a client certificate has an extended key usage extension, it must include `clientAuth`.
+
+The settings of the `[Network]` section that the MiaRec web portal stores in the database take precedence over `miarec_screen.ini`, which is the fallback. If the web portal sets any of these settings for a controller, the controller uses the value from the database, and the role's value has no effect.
+
 Example Playbook
 ----------------
 
@@ -73,7 +92,7 @@ Example with TLS for PostgreSQL and Redis:
       become: yes
       roles:
         - role: ansible-role-miarec-screen
-          miarec_screen_version: 2026.8.3.0
+          miarec_screen_version: 2026.11.15.0
           miarec_screen_bin_user: miarec
           miarec_screen_bin_group: miarec
           miarec_db_use_ssl: true
@@ -84,6 +103,25 @@ Example with TLS for PostgreSQL and Redis:
           miarec_redis_tls_ca_file: /etc/miarec/tls/ca.crt
           miarec_redis_tls_cert_file: /etc/miarec/tls/client.crt
           miarec_redis_tls_key_file: /etc/miarec/tls/client.key
+```
+
+Example with TLS on the control interface, with client certificates. The role uploads the files from the control machine:
+
+``` yaml
+    - name: Install miarec screen recorder
+      hosts: screen
+      become: yes
+      roles:
+        - role: ansible-role-miarec-screen
+          miarec_screen_version: 2026.11.15.0
+          miarec_screen_bin_user: miarec
+          miarec_screen_bin_group: miarec
+          miarec_screen_tls_cert_file: /etc/miarec/tls/screen/controller.crt
+          miarec_screen_tls_key_file: /etc/miarec/tls/screen/controller.key
+          miarec_screen_tls_ca_file: /etc/miarec/tls/screen/ca.crt
+          miarec_screen_tls_cert_file_src: files/tls/screen/controller.crt
+          miarec_screen_tls_key_file_src: files/tls/screen/controller.key
+          miarec_screen_tls_ca_file_src: files/tls/screen/ca.crt
 ```
 
 ## Testing

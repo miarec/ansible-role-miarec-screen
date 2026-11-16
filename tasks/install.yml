@@ -184,6 +184,29 @@
   notify: Restart miarec_screen
 
 # --------------------------------------------------
+# TLS on the control interface (Network)
+# The TLS port (PortTLS) comes from the sample file or the web portal. The
+# file settings are written when any of the paths is set; the web portal's
+# settings take precedence over them. An empty SSLCACertificates turns
+# client certificates off.
+# --------------------------------------------------
+- name: Configure control interface TLS settings in miarec_screen.ini
+  ini_file:
+    dest: "{{ deploy_helper.new_release_path }}/miarec_screen.ini"
+    section: 'Network'
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    owner: root
+    group: '{{ miarec_screen_bin_group }}'
+    mode: '0640'
+  loop:
+    - { option: 'SSLCertificate', value: '{{ miarec_screen_tls_cert_file }}' }
+    - { option: 'SSLPrivateKey', value: '{{ miarec_screen_tls_key_file }}' }
+    - { option: 'SSLCACertificates', value: '{{ miarec_screen_tls_ca_file }}' }
+  when: _miarec_screen_network_tls | bool
+  notify: Restart miarec_screen
+
+# --------------------------------------------------
 # Install service
 # --------------------------------------------------
 - name: Check for SystemD

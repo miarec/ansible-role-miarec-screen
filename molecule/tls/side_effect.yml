@@ -1,0 +1,89 @@
+---
+# Renew the controller's TLS certificate on the control machine, as an
+# operator does before it expires, and run the role again. The role must
+# upload the new certificate and key, and restart the controller. The verify
+# step checks that the controller presents the renewed certificate
+# (tests/test_screen_tls.py).
+
+- name: Renew the controller's TLS certificate on the control machine
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: Keep the first certificate of the controller for the verify step
+      copy:
+        src: "{{ tls_src_dir }}/screen/controller.crt"
+        dest: "{{ tls_src_dir }}/screen/controller-first.crt"
+        mode: "0644"
+
+    # Screen-CA (tasks/screen_certificates.yml) signs the renewed certificate
+    # too, so the clients keep trusting the controller.
+    - name: Create the renewed certificate and key of the controller
+      include_tasks: tasks/screen_controller_certificate.yml
+      vars:
+        screen_controller_dir: "{{ tls_src_dir }}/screen-renewed"
+
+    - name: Replace the controller's certificate and key with the renewed ones
+      copy:
+        src: "{{ tls_src_dir }}/screen-renewed/{{ item }}"
+        dest: "{{ tls_src_dir }}/screen/{{ item }}"
+        mode: "0600"
+      loop: [controller.crt, controller.key]
+
+- name: Read the main PID of the controller before the role runs
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Read the state of the controller's service
+      systemd:
+        name: miarec_screen
+      register: _screen_service_before
+
+    - name: Remember the main PID of the controller
+      set_fact:
+        screen_pid_before_renewal: "{{ _screen_service_before.status.MainPID }}"
+
+- name: Run the role with the renewed certificate
+  import_playbook: converge.yml
+
+- name: Check that the role uploaded the renewed certificate and restarted the controller
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Read the checksums of the renewed certificate and key on the control machine
+      stat:
+        path: "{{ tls_src_dir }}/screen/{{ item }}"
+      loop: [controller.crt, controller.key]
+      register: _screen_renewed_src
+      delegate_to: localhost
+      become: false
+
+    - name: Read the checksums of the certificate and key on the host
+      stat:
+        path: "/etc/miarec/tls/screen/{{ item }}"
+      loop: [controller.crt, controller.key]
+      register: _screen_renewed_host
+
+    - name: Check that the host has the renewed certificate and key
+      assert:
+        that:
+          - _screen_renewed_host.results | map(attribute='stat.checksum') | list == _screen_renewed_src.results | map(attribute='stat.checksum') | list
+        fail_msg: "The role didn't upload the renewed TLS certificate and key of the controller."
+
+    - name: Read the state of the controller's service after the role ran
+      systemd:
+        name: miarec_screen
+      register: _screen_service_after
+
+    - name: Check that the role restarted the controller
+      assert:
+        that:
+          - _screen_service_after.status.MainPID | int != 0
+          - _screen_service_after.status.MainPID != screen_pid_before_renewal
+        fail_msg: >-
+          The role didn't restart the controller after it uploaded the renewed
+          certificate: the main PID is still {{ _screen_service_after.status.MainPID }}.

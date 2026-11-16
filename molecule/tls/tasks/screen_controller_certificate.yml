@@ -1,0 +1,65 @@
+---
+# Create the controller's certificate and key for TLS on the control
+# interface in screen_controller_dir on the control machine: controller.key,
+# and controller.crt, which Screen-CA (tls_src_dir/screen/ca.key and ca.crt)
+# signs for localhost, where the tests connect, as the PostgreSQL and Redis
+# server certificates are issued. prepare.yml runs these tasks for the first
+# certificate, and side_effect.yml for the renewed one. The role uploads the
+# files from here.
+
+- name: Screen | Create the directory of the controller's certificate
+  file:
+    path: "{{ screen_controller_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: Screen | Generate the controller's key
+  command: openssl genrsa -out {{ screen_controller_dir }}/controller.key 2048
+  args:
+    creates: "{{ screen_controller_dir }}/controller.key"
+
+- name: Screen | Create the certificate config of the controller
+  copy:
+    content: |
+      [req]
+      distinguished_name = req_distinguished_name
+      req_extensions = v3_req
+      prompt = no
+
+      [req_distinguished_name]
+      CN = localhost
+
+      [v3_req]
+      basicConstraints = CA:FALSE
+      keyUsage = digitalSignature, keyEncipherment
+      extendedKeyUsage = serverAuth
+      subjectAltName = @alt_names
+
+      [alt_names]
+      DNS.1 = localhost
+      IP.1 = 127.0.0.1
+    dest: "{{ screen_controller_dir }}/controller.cnf"
+    mode: "0644"
+
+- name: Screen | Generate the CSR of the controller
+  command: >
+    openssl req -new
+    -key {{ screen_controller_dir }}/controller.key
+    -out {{ screen_controller_dir }}/controller.csr
+    -config {{ screen_controller_dir }}/controller.cnf
+  args:
+    creates: "{{ screen_controller_dir }}/controller.csr"
+
+- name: Screen | Sign the controller's certificate with Screen-CA
+  command: >
+    openssl x509 -req
+    -in {{ screen_controller_dir }}/controller.csr
+    -CA {{ tls_src_dir }}/screen/ca.crt
+    -CAkey {{ tls_src_dir }}/screen/ca.key
+    -CAcreateserial
+    -out {{ screen_controller_dir }}/controller.crt
+    -days 365 -sha256
+    -extensions v3_req
+    -extfile {{ screen_controller_dir }}/controller.cnf
+  args:
+    creates: "{{ screen_controller_dir }}/controller.crt"
