@@ -26,7 +26,7 @@ MOLECULE_DISTRO=centos7 MOLECULE_MIAREC_SCREEN_VERSION=1.1.0.46 molecule test
 
 ## TLS scenario
 
-The `tls` scenario installs PostgreSQL and Redis with TLS in the same container, then installs MiaRec Screen Controller with TLS enabled for both connections. The service runs as the `miarec` user and group.
+The `tls` scenario installs PostgreSQL and Redis with TLS in the same container, then installs MiaRec Screen Controller with TLS enabled for both connections, and with client certificates on the control interface, where the screen recording clients connect. The service runs as the `miarec` user and group.
 
 The prepare step generates a test PKI per service on the control machine, in the `tls` directory of `MOLECULE_EPHEMERAL_DIRECTORY`. It needs the `openssl` command there. The CA private keys never leave the control machine. Layout of `tls/<service>/` for `postgresql` and `redis`:
 
@@ -34,9 +34,19 @@ The prepare step generates a test PKI per service on the control machine, in the
 - `client.crt`, `client.key`: client certificate and key for MiaRec
 - `server.crt`, `server.key`: server certificate and key
 
-The prepare step uploads the server certificate and the CA certificate to `/etc/postgresql/tls` and `/etc/redis/tls` on the target. The role uploads the client certificate, the client key, and the CA certificate to `/etc/miarec/tls/postgresql` and `/etc/miarec/tls/redis` during converge, the same way the production playbooks do. Nothing in prepare writes to `/etc/miarec/tls`, so the test proves that the role creates the directories and uploads six distinct files.
+For the control interface, the prepare step generates Screen-CA, which stands for the CA of a deployment, in `tls/screen/`:
+
+- `ca.crt`: the CA certificate of the clients
+- `controller.crt`, `controller.key`: the controller's certificate and key, issued for `localhost`
+- `client.crt`, `client.key`: a client certificate for the tests
+
+The prepare step uploads the server certificate and the CA certificate to `/etc/postgresql/tls` and `/etc/redis/tls` on the target, and the screen recording client certificate to `/root/screen-client`. The role uploads the client certificate, the client key, and the CA certificate to `/etc/miarec/tls/postgresql` and `/etc/miarec/tls/redis` during converge, the same way the production playbooks do, and the controller's certificate and key, and the CA certificate of the clients, to `/etc/miarec/tls/screen`. Nothing in prepare writes to `/etc/miarec/tls`, so the test proves that the role creates the directories and uploads nine distinct files.
 
 PostgreSQL accepts only `hostssl` connections with a client certificate, and Redis listens only on the TLS port. The tests check that plaintext connections are rejected, so a healthy `/health` response proves that the application uses TLS.
+
+The control interface tests connect to port 6092 with `openssl s_client`, verifying the controller against Screen-CA: a client without a certificate gets the alert `certificate required`, and a client certificate of another CA gets `unknown ca`. The `side_effect` step renews the controller's certificate on the control machine and runs the role again, which must upload it and restart the controller. The tests then check that the controller presents the renewed certificate.
+
+MiaRec Screen Controller 2026.8.3.0 and 2026.10.26.0 crash as soon as they accept a client connection, over TCP or TLS, and systemd restarts them 5 seconds later ([ScreenRecController#15](https://github.com/miarecdev/ScreenRecController/issues/15)). The test that connects with a client certificate of Screen-CA runs last and is marked as an expected failure (`xfail`, strict). When a release accepts the client, the test passes, the strict marker fails the run, and the marker must be removed.
 
 Run the TLS scenario
 ```
