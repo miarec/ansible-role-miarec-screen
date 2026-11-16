@@ -10,20 +10,16 @@ which connect to the controller with `openssl s_client` from inside the
 container. side_effect.yml renews the controller's certificate on the control
 machine and runs the role again.
 
-MiaRec Screen Controller 2026.8.3.0 and 2026.10.26.0 crash with SIGSEGV in
-CWatchDog::RegisterThread as soon as they accept a client connection, over
-TCP or TLS, and systemd restarts them 5 seconds later
-(https://github.com/miarecdev/ScreenRecController/issues/15). A handshake that the
-controller rejects doesn't reach that code, so the tests read the
-controller's certificate from a handshake without a client certificate, and
-the test of an accepted client runs last, as an expected failure.
+MiaRec Screen Controller 2026.8.3.0 and 2026.10.26.0 crash with SIGSEGV as
+soon as they accept a client connection, over TCP or TLS
+(https://github.com/miarecdev/ScreenRecController/issues/15). 2026.11.15.0
+fixes the crash, and the test of an accepted client checks that the
+controller keeps running.
 """
 import os
 import re
-import time
 from pathlib import Path
 
-import pytest
 import testinfra.utils.ansible_runner
 
 testinfra_hosts = testinfra.utils.ansible_runner.AnsibleRunner(
@@ -64,8 +60,7 @@ def presented_certificate(host):
     """Return the certificate that the controller presents in a TLS handshake.
 
     s_client sends no client certificate: with TLS 1.3, the controller
-    presents its certificate before it asks for the client's, and the
-    rejected handshake doesn't crash the controller (see the module docstring).
+    presents its certificate before it asks for the client's.
     """
     result = host.run(f"openssl s_client -connect 127.0.0.1:{PORT} < /dev/null")
     presented = re.search(
@@ -161,32 +156,12 @@ def test_the_controller_refuses_a_client_certificate_of_another_ca(host):
     assert "alert unknown ca" in result.stderr
 
 
-def wait_for_the_controller(host):
-    """Wait until the controller runs and listens on the TLS port again.
-
-    The accepted connection crashes the controller (see the module
-    docstring), and systemd restarts it 5 seconds later. The tests of
-    test_tls.py run after this file and need the service.
-    """
-    for _ in range(30):
-        if host.service("miarec_screen").is_running and host.socket(f"tcp://0.0.0.0:{PORT}").is_listening:
-            return
-        time.sleep(1)
-    raise AssertionError("The controller didn't come back after the accepted connection")
-
-
-# This test runs last in this file. When a release accepts the client, the
-# test passes, and the strict marker fails the run, so that the marker gets
-# removed.
-@pytest.mark.xfail(
-    strict=True,
-    reason="MiaRec Screen Controller 2026.8.3.0 and 2026.10.26.0 crash on an accepted connection, "
-    "see https://github.com/miarecdev/ScreenRecController/issues/15",
-)
 def test_the_controller_accepts_a_client_with_a_certificate_of_the_client_ca(host):
-    try:
-        result = tls_session(host, CLIENT_CERT, CLIENT_KEY)
-    finally:
-        wait_for_the_controller(host)
+    main_pid = host.check_output("systemctl show --property MainPID --value miarec_screen")
+    result = tls_session(host, CLIENT_CERT, CLIENT_KEY)
     assert result.rc == 0, result.stdout + result.stderr
     assert "alert" not in result.stderr, result.stderr
+    # 2026.8.3.0 and 2026.10.26.0 crashed here (see the module docstring), and
+    # systemd restarted them with a new process.
+    assert host.service("miarec_screen").is_running
+    assert host.check_output("systemctl show --property MainPID --value miarec_screen") == main_pid
