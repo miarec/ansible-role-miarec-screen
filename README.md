@@ -51,7 +51,7 @@ The REST API reports the connection state at `http://<host>:6089/health`. The re
 
 ### TLS on the control interface
 
-The screen recording clients connect to the controller on the TLS port of the `[Network]` section, `PortTLS`, which is 6092 in the sample configuration file. The role doesn't set the port. These variables set the TLS files of that section:
+The screen recording clients connect to the controller on the TLS port of the `[Network]` section, `PortTLS`, which is 6092 in the sample configuration file. The role doesn't set the port. MiaRec Screen Controller 2026.8.3.0 and 2026.10.26.0 crash on every accepted client connection, over TCP or TLS ([ScreenRecController#15](https://github.com/miarecdev/ScreenRecController/issues/15)), so use 2026.11.15.0 or later. These variables set the TLS files of that section:
 
 - `miarec_screen_tls_cert_file`: The path of the controller's certificate on the host (default: empty). Sets `SSLCertificate`. Set it with the key.
 - `miarec_screen_tls_key_file`: The path of the controller's private key on the host (default: empty). Sets `SSLPrivateKey`. Set it with the certificate.
@@ -92,7 +92,7 @@ Example with TLS for PostgreSQL and Redis:
       become: yes
       roles:
         - role: ansible-role-miarec-screen
-          miarec_screen_version: 2026.8.3.0
+          miarec_screen_version: 2026.11.15.0
           miarec_screen_bin_user: miarec
           miarec_screen_bin_group: miarec
           miarec_db_use_ssl: true
@@ -113,7 +113,7 @@ Example with TLS on the control interface, with client certificates. The role up
       become: yes
       roles:
         - role: ansible-role-miarec-screen
-          miarec_screen_version: 2026.8.3.0
+          miarec_screen_version: 2026.11.15.0
           miarec_screen_bin_user: miarec
           miarec_screen_bin_group: miarec
           miarec_screen_tls_cert_file: /etc/miarec/tls/screen/controller.crt
